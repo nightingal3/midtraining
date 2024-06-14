@@ -1,0 +1,3 @@
+[submodule "litgpt"]
+	path = litgpt
+	url = https://github.com/nightingal3/litgpt.git
