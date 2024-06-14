@@ -1,0 +1,7 @@
+version: 2
+updates:
+  - package-ecosystem: "git-submodules"  # Indicates git submodules
+    directory: "/"                       # Location of the repository's root directory
+    schedule:
+      interval: "daily"                  # Frequency for Dependabot to check for updates
+    open-pull-requests-limit: 5          # Maximum number of open pull requests Dependabot can have
