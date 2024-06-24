@@ -1,24 +1,30 @@
 # (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 import argparse
-from transformers import AutoModelForCausalLM, AutoTokenizer
 import os
 import pathlib
+
 from huggingface_hub import HfApi, Repository
 
 from manifold.clients.python import ManifoldClient
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 MODELS_PATH = "./models/"
 MANIFOLD_PATH = "all_in_one_pretraining/models/"
+STEP_INTERVAL = 10000
+
 
 def dir_to_manifold(dir_path: str, subdir_in_manifold: str) -> None:
     client = ManifoldClient("coin/tree")
-        
+
     for file in os.listdir(dir_path):
         if os.path.isfile(os.path.join(dir_path, file)):
             try:
-                client.sync_put(f"coin/tree/{MANIFOLD_PATH}", )
+                client.sync_put(
+                    f"coin/tree/{MANIFOLD_PATH}",
+                )
             except Exception as e:
                 print(e)
+
 
 def download_model_branches(model_name: str) -> None:
     api = HfApi()
@@ -28,6 +34,9 @@ def download_model_branches(model_name: str) -> None:
         branch_name = branch.name
         if "step" in branch_name or "main" in branch_name:
             # save the checkpoint
+            step_num = branch_name.split("step")[-1]
+            if step_num % STEP_INTERVAL != 0:
+                continue
             step_path = os.path.join(MODELS_PATH, model_name, branch_name)
             print(f"Downloading {model_name} branch: {branch_name}")
             if not os.path.exists(step_path):
