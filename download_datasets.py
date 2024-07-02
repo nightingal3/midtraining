@@ -19,6 +19,11 @@ datasets = {
 }
 
 
+def mcq_to_text(answers: list, labels: list, correct_label: str):
+    labels_to_answers = {lab: ans for ans, lab in zip(answers, labels)}
+    return labels_to_answers[correct_label]
+
+
 # some datasets have different formats, store them in a common way with instruction/input(context)/output
 def format_row(sample: dict, dataset: str) -> dict:
     if dataset == "databricks/databricks-dolly-15k":
@@ -47,6 +52,22 @@ def format_row(sample: dict, dataset: str) -> dict:
         }
     elif dataset == "GAIR/lima":
         return sample  # TODO
+    elif dataset == "allenai/sciq":
+        return {
+            "instruction": sample["question"],
+            "input": "",
+            "output": sample["correct_answer"],
+        }
+    elif dataset == "allenai/ai2_arc":
+        return {
+            "instruction": sample["question"],
+            "input": "",
+            "output": mcq_to_text(
+                sample["choices"]["text"],
+                sample["choices"]["label"],
+                sample["answerKey"],
+            ),
+        }
 
     return sample
 
@@ -72,8 +93,10 @@ def main(args: argparse.Namespace) -> None:
             dataset_dict = load_dataset("allenai/ai2_arc", "ARC-Easy")
         else:
             dataset_dict = load_dataset(dataset, trust_remote_code=True)
+
         for split in dataset_dict.keys():
-            data_path = f"{MANIFOLD_DIR}/all_in_one_pretraining/datasets/{dataset_type}/{dataset}/{split}.json"
+            # data_path = f"{MANIFOLD_DIR}/all_in_one_pretraining/datasets/{dataset_type}/{dataset}/{split}.json"
+            data_path = f"./datasets/{dataset_type}/{dataset}/{split}.json"
             os.makedirs(os.path.dirname(data_path), exist_ok=True)
             formatted_dataset = dataset_dict[split].map(
                 partial(format_row, dataset=dataset)
