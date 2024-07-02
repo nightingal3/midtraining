@@ -95,8 +95,7 @@ def main(args: argparse.Namespace) -> None:
             dataset_dict = load_dataset(dataset, trust_remote_code=True)
 
         for split in dataset_dict.keys():
-            # data_path = f"{MANIFOLD_DIR}/all_in_one_pretraining/datasets/{dataset_type}/{dataset}/{split}.json"
-            data_path = f"./datasets/{dataset_type}/{dataset}/{split}.json"
+            data_path = f"{MANIFOLD_DIR}/all_in_one_pretraining/datasets/{dataset_type}/{dataset}/{split}.json"
             os.makedirs(os.path.dirname(data_path), exist_ok=True)
             formatted_dataset = dataset_dict[split].map(
                 partial(format_row, dataset=dataset)
