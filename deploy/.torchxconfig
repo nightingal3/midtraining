@@ -1,0 +1,11 @@
+# defaults scheduler args
+[mast_conda]
+hpcIdentity = ads_content_understanding
+hpcJobOncall = megataxon
+workspace_fbpkg_name = metaconda_demo
+conda_fbpkg_id = torchx_base_conda_env:fe456e6
+conda_path_in_fbpkg = conda
+
+# sets the default scheduler to mast_conda
+[cli:run]
+scheduler = mast_conda
