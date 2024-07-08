@@ -1,4 +1,8 @@
 import torchx.components.fb.conda as conda
+<<<<<<< HEAD
+=======
+import torchx.components.fb.interactive_lib as interactive_lib
+>>>>>>> c19d8b4 (merge)
 import torchx.specs as specs
 
 
@@ -17,7 +21,11 @@ additional_packages = [
 ]
 
 
+<<<<<<< HEAD
 def train_singlegpu(
+=======
+def train(
+>>>>>>> c19d8b4 (merge)
     *script_args: str,
     name: str = "mixed_train",
     script: str = "mixed_pretraining.sh",
@@ -36,6 +44,7 @@ def train_singlegpu(
         "env": {**env_vars, **env} if env else env_vars,
     }
 
+<<<<<<< HEAD
     # args = [
     #     "--nnodes",
     #     str(nnodes),
@@ -50,13 +59,20 @@ def train_singlegpu(
     #     f"--tb_log={tb_log}",
     # ]
 
+=======
+>>>>>>> c19d8b4 (merge)
     args = [
         "--nnodes",
         str(nnodes),
         "--nproc-per-node",
         str(nproc_per_node),
         "--no-python",
+<<<<<<< HEAD
         "./run_new.sh",
+=======
+        "./run.sh",
+        script,
+>>>>>>> c19d8b4 (merge)
         *script_args,
         f"--out_dir={out_dir}",
         f"--tb_log={tb_log}",
@@ -68,3 +84,43 @@ def train_singlegpu(
     job_spec.roles[0].image = ";".join(packages)
 
     return job_spec
+<<<<<<< HEAD
+=======
+
+
+def train_interactive(
+    *script_args: str,
+    script: str = "mixed_pretraining.sh",
+    nnodes: int = 1,
+    nproc_per_node: int = 1,
+    name: str = "train_interactive",
+    h: str = "tc_any",
+    run_as_root: bool = True,
+    out_dir: str = "/mnt/mffuse/out/${app_id}",
+    tb_log: bool = True,
+) -> specs.AppDef:
+    # Set env variable to disable mounting
+    #additional_env = {"DISABLE_MOUNT": "1"}
+    # define a training job spec
+    job_spec = train(
+        *script_args,
+        script=script,
+        nnodes=nnodes,
+        nproc_per_node=nproc_per_node,
+        name=name,
+        h=h,
+        run_as_root=run_as_root,
+        env=additional_env,
+        out_dir=out_dir,
+        tb_log=tb_log,
+    )
+    # wrap the job spec with as_interactive
+    return interactive_lib.as_interactive(
+        # the job spec to wrap
+        job_spec=job_spec,
+        # reserve MAST host for 4 hours
+        interactive_duration_hrs=4,
+        # prerun the mount command at node startup
+        prerun_commands={"torchrun": "source /packages/torchx_conda_mount/mount.sh"},
+    )
+>>>>>>> c19d8b4 (merge)
