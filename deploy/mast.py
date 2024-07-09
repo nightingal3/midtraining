@@ -1,8 +1,5 @@
 import torchx.components.fb.conda as conda
-<<<<<<< HEAD
-=======
 import torchx.components.fb.interactive_lib as interactive_lib
->>>>>>> c19d8b4 (merge)
 import torchx.specs as specs
 
 
@@ -21,11 +18,7 @@ additional_packages = [
 ]
 
 
-<<<<<<< HEAD
-def train_singlegpu(
-=======
 def train(
->>>>>>> c19d8b4 (merge)
     *script_args: str,
     name: str = "mixed_train",
     script: str = "mixed_pretraining.sh",
@@ -44,35 +37,14 @@ def train(
         "env": {**env_vars, **env} if env else env_vars,
     }
 
-<<<<<<< HEAD
-    # args = [
-    #     "--nnodes",
-    #     str(nnodes),
-    #     "--nproc-per-node",
-    #     str(nproc_per_node),
-    #     "--no-python",
-    #     "--conda_pack_ignore_missing_files=True",
-    #     "./run.sh",
-    #     script,
-    #     *script_args,
-    #     f"--out_dir={out_dir}",
-    #     f"--tb_log={tb_log}",
-    # ]
-
-=======
->>>>>>> c19d8b4 (merge)
     args = [
         "--nnodes",
         str(nnodes),
         "--nproc-per-node",
         str(nproc_per_node),
         "--no-python",
-<<<<<<< HEAD
-        "./run_new.sh",
-=======
         "./run.sh",
         script,
->>>>>>> c19d8b4 (merge)
         *script_args,
         f"--out_dir={out_dir}",
         f"--tb_log={tb_log}",
@@ -84,8 +56,6 @@ def train(
     job_spec.roles[0].image = ";".join(packages)
 
     return job_spec
-<<<<<<< HEAD
-=======
 
 
 def train_interactive(
@@ -100,7 +70,7 @@ def train_interactive(
     tb_log: bool = True,
 ) -> specs.AppDef:
     # Set env variable to disable mounting
-    #additional_env = {"DISABLE_MOUNT": "1"}
+    # additional_env = {"DISABLE_MOUNT": "1"}
     # define a training job spec
     job_spec = train(
         *script_args,
@@ -123,4 +93,3 @@ def train_interactive(
         # prerun the mount command at node startup
         prerun_commands={"torchrun": "source /packages/torchx_conda_mount/mount.sh"},
     )
->>>>>>> c19d8b4 (merge)
