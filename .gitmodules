@@ -1,3 +1,6 @@
 [submodule "litgpt"]
 	path = litgpt
 	url = https://github.com/nightingal3/litgpt.git
+[submodule "lm-evaluation-harness"]
+	path = lm-evaluation-harness
+	url = https://github.com/EleutherAI/lm-evaluation-harness.git
