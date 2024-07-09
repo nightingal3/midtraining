@@ -1,7 +1,7 @@
 #!/bin/bash
 
 model_name=${1:-pythia-410m}
-checkpoint_dir=${2:-/data/users/nightingal3/all_in_one_pretraining/models/EleutherAI/pythia-410m/}
+checkpoint_dir=${2:-./models/EleutherAI/pythia-410m/}
 step=${3:-140000}
 max_seq_len=${5:-2048}
 
@@ -49,20 +49,20 @@ pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
 # TODO - train details such as batch size should be passed from a config instead of manually passed in.
 # legit runs should have 20B. Test runs with 1B-5B for sanity checking
 # echo -e "\033[32m> > Pretraining ... \033[0m"
-# litgpt pretrain $model_name \
-#   --initial_checkpoint_dir "${checkpoint_dir}/step${step}" \
-#   --tokenizer_dir "${checkpoint_dir}/step${step}" \
-#   --data FineWebDataset \
-#   --data.data_path "${FINEWEB_DIR}" \
-#   --train.micro_batch_size 16 \
-#   --train.max_seq_len $max_seq_len \
-#   --train.min_lr 1e-6 \
-#   --train.max_steps 10000 \
-#   --train.save_interval 1000 \
-#   --train.lr_warmup_fraction 0.01 \
-#   --eval.interval 1000 \
-#   --out_dir "out/${model_name}_pretrained_from_${step}" \
-#   --logger_name wandb
+litgpt pretrain $model_name \
+  --initial_checkpoint_dir "${checkpoint_dir}/step${step}" \
+  --tokenizer_dir "${checkpoint_dir}/step${step}" \
+  --data FineWebDataset \
+  --data.data_path "${FINEWEB_DIR}" \
+  --train.micro_batch_size 16 \
+  --train.max_seq_len $max_seq_len \
+  --train.min_lr 1e-6 \
+  --train.max_steps 10000 \
+  --train.save_interval 1000 \
+  --train.lr_warmup_fraction 0.01 \
+  --eval.interval 1000 \
+  --out_dir "out/${model_name}_pretrained_from_${step}" \
+  --logger_name wandb
 
 pretrained_checkpoint_dir="out/${model_name}_pretrained_from_${step}"
 

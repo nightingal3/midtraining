@@ -23,7 +23,7 @@ def train(
     name: str = "mixed_train",
     script: str = "mixed_pretraining.sh",
     nnodes: int = 1,
-    nproc_per_node: int = 1,
+    nproc_per_node: int = 8,
     h: str = "tc_any",
     run_as_root: bool = True,
     env: Optional[dict] = {},
@@ -62,7 +62,7 @@ def train_interactive(
     *script_args: str,
     script: str = "mixed_pretraining.sh",
     nnodes: int = 1,
-    nproc_per_node: int = 1,
+    nproc_per_node: int = 8,
     name: str = "train_interactive",
     h: str = "tc_any",
     run_as_root: bool = True,
@@ -71,6 +71,7 @@ def train_interactive(
 ) -> specs.AppDef:
     # Set env variable to disable mounting
     # additional_env = {"DISABLE_MOUNT": "1"}
+    additional_env = {}
     # define a training job spec
     job_spec = train(
         *script_args,
@@ -88,8 +89,7 @@ def train_interactive(
     return interactive_lib.as_interactive(
         # the job spec to wrap
         job_spec=job_spec,
-        # reserve MAST host for 4 hours
-        interactive_duration_hrs=4,
+        interactive_duration_hrs=24,
         # prerun the mount command at node startup
         prerun_commands={"torchrun": "source /packages/torchx_conda_mount/mount.sh"},
     )

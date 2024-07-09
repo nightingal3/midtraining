@@ -3,8 +3,11 @@
 hpcIdentity = ads_content_understanding
 hpcJobOncall = megataxon
 workspace_fbpkg_name = metaconda_demo
-conda_fbpkg_id = torchx_base_conda_env:fe456e6
-conda_path_in_fbpkg = conda
+conda_pack_ignore_missing_files = True
+use_caf = False
+rmAttribution = ads_global_tc_ads_score
+modelTypeName = ads_ugc_relevance
+tags=ads_ranking_taxonomy_relevance
 
 # sets the default scheduler to mast_conda
 [cli:run]
