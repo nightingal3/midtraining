@@ -1,0 +1,5 @@
+group: sanity-check
+task:
+  - arithmetic
+metric_list:
+  - metric: byte_perplexity
