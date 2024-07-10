@@ -9,6 +9,7 @@ env_vars = {
     "MANIFOLDFS_BUCKET": "coin",
     "LD_PRELOAD": "/usr/local/fbcode/platform010/lib/libcuda.so:/usr/local/fbcode/platform010/lib/libnvidia-ml.so",
     "TRITON_LIBCUDA_PATH": "/usr/local/fbcode/platform010/lib/libcuda.so",
+    "NCCL_DEBUG": "WARN"
 }
 
 additional_packages = [
