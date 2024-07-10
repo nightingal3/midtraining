@@ -1,0 +1,5 @@
+group: sanity-check-mcq
+task:
+  - arc
+metric_list:
+  - metric: brier_score

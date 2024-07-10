@@ -3,4 +3,4 @@ task:
   - gsm8k
   - arithmetic
 metric_list:
-  - metric: byte_perplexity
+  - metric: perplexity
