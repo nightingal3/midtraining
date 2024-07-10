@@ -1,23 +1,67 @@
 #!/bin/bash
 
-model_name=${1:-pythia-410m}
-checkpoint_dir=${2:-./models/EleutherAI/pythia-410m/}
-step=${3:-140000}
-max_seq_len=${5:-2048}
-
-conda activate towerllm-env
-export CUDA_VISIBLE_DEVICES="4,5,6,7"
 eval_initial=false
+
 # Read personal user vars
 set -a
 source configs/.env
 set +a
 
-pretraining_data_dir="${FINEWEB_DIR}"
-instruction_data_json="./datasets/sft/allenai/ai2_arc/"
+### Default args
 
-RUN_ID=$(date +%s)
-echo -e "\033[32m> The run id is ${RUN_ID}. Please keep this for your records \033[0m"
+model_name="pythia-1b"
+step=140000
+steps_to_train=100000
+max_seq_len=2048
+checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/${model_name}/"
+pretraining_data_dir="${FINEWEB_DIR}"
+instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat/"
+run_id=${EPOCHSECONDS}
+
+### Default args
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --model_name)
+            model_name="${2:-$model_name}"
+            shift 2
+            ;;
+        --step)
+            step="${2:-$step}}"
+            shift 2
+            ;;
+        --steps_to_train)
+            steps_to_train="${2:-$steps_to_train}"
+            shift 2
+            ;;
+        --max_seq_len)
+            max_seq_len="${2:-$max_seq_len}"
+            shift 2
+            ;;
+        --checkpoint_dir)
+            checkpoint_dir="${2:-$checkpoint_dir}"
+            shift 2
+            ;;
+        --pretraining_data_dir)
+            pretraining_data_dir="${2:-$pretraining_data_dir}"
+            shift 2
+            ;;
+        --instruction_data_json)
+            instruction_data_json="${2:-$instruction_data_json}"
+            shift 2
+            ;;
+        --run_id)
+            run_id="${2:-$run_id}"
+            shift 2
+            ;;
+        *)
+            echo "Invalid option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+echo -e "\033[32m> The run id is ${run_id}. Please keep this for your records \033[0m"
 
 # $1 = model_name
 evaluate() {
@@ -57,19 +101,19 @@ litgpt pretrain $model_name \
   --train.micro_batch_size 8 \
   --train.max_seq_len $max_seq_len \
   --train.min_lr 1e-6 \
-  --train.max_steps 10000 \
+  --train.max_steps ${steps_to_train} \
   --train.save_interval 1000 \
   --train.lr_warmup_fraction 0.01 \
   --eval.interval 1000 \
-  --out_dir "out/${model_name}_pretrained_from_${step}"
-  #--logger_name wandb
+  --out_dir "out/${model_name}_pretrained_from_${step}_id${run_id}" \
+  --logger_name wandb
 exit 0
 pretrained_checkpoint_dir="out/${model_name}_pretrained_from_${step}"
 
 # echo -e "\033[32m> Evaluating after pretraining and sft...\033[0m"
 # litgpt evaluate "out/${model_name}_pretrained_from_${step}/final" \
 #     --batch_size 8 \
-#     --out_dir "post_results/${model_name}_pretrained_id${RUN_ID}" \
+#     --out_dir "post_results/${model_name}_pretrained_id${run_id}" \
 #     --tasks "gsm8k,arc_easy"
 
 # 3) Instruction-tune the model
@@ -83,11 +127,11 @@ litgpt finetune_full $pretrained_checkpoint_dir \
   --train.epochs 5 \
   --train.lr_warmup_steps 100 \
   --logger_name wandb \
-  --out_dir "out/${model_name}_pretrained_sft_from_${step}_id${RUN_ID}"
+  --out_dir "out/${model_name}_pretrained_sft_from_${step}_id${run_id}"
 
 # TODO - need to add some tasks to eval harness.
 echo -e "\033[32m> Evaluating after pretraining and sft...\033[0m"
-litgpt evaluate "out/${model_name}_pretrained_sft_from_${step}_id${RUN_ID}/final" \
+litgpt evaluate "out/${model_name}_pretrained_sft_from_${step}_id${run_id}/final" \
     --batch_size 8 \
-    --out_dir "post_results/${model_name}_instruction_posttune_id${RUN_ID}" \
+    --out_dir "post_results/${model_name}_instruction_posttune_id${run_id}" \
     --tasks "gsm8k,arc_easy"
