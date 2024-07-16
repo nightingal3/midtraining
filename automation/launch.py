@@ -1,17 +1,29 @@
 import argparse
 import concurrent.futures
+import random
 import subprocess
+import time
 
 import pandas as pd
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp_file", default="./automation/sft_exps.tsv")
+    parser.add_argument("--exp_file", default="./automation/pretrain_exps.csv")
     parser.add_argument("--constraint", default=None, help="filter exp df to a subset")
     parser.add_argument(
         "--dry_run",
         action="store_true",
         help="don't execute, just print torchx command",
+    )
+    parser.add_argument(
+        "--stagger",
+        action="store_true",
+        help="stagger the time at which jobs are submitted",
+    )
+    parser.add_argument(
+        "--sequential",
+        action="store_true",
+        help="submit jobs sequentially instead of in parallel",
     )
     args = parser.parse_args()
 
@@ -23,15 +35,36 @@ if __name__ == "__main__":
         for row in df.to_dict(orient="records"):
             print(row["torchx_cmd"])
     else:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = []
+        if args.sequential:
             for row in df.to_dict(orient="records"):
                 torchx_cmd = row["torchx_cmd"]
+                print(f"Running {torchx_cmd}")
                 deploy_path = "/data/users/nightingal3/all_in_one_pretraining/deploy"
-                future = executor.submit(
-                    subprocess.run, torchx_cmd, shell=True, cwd=deploy_path
-                )
-                futures.append(future)
 
-            for future in concurrent.futures.as_completed(futures):
-                future.result()
+                subprocess.run(torchx_cmd, shell=True, cwd=deploy_path)
+
+                if args.stagger:
+                    delay = 300
+                    print("Waiting...")
+                    print(f"Staggering job submission by {delay} seconds")
+                    time.sleep(delay)
+        else:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = []
+                for row in df.to_dict(orient="records"):
+                    torchx_cmd = row["torchx_cmd"]
+                    deploy_path = (
+                        "/data/users/nightingal3/all_in_one_pretraining/deploy"
+                    )
+                    if args.stagger:
+                        delay = random.randint(120, 3600)
+                        print(f"Staggering job submission by {delay} seconds")
+                        time.sleep(delay)
+
+                    future = executor.submit(
+                        subprocess.run, torchx_cmd, shell=True, cwd=deploy_path
+                    )
+                    futures.append(future)
+
+                for future in concurrent.futures.as_completed(futures):
+                    future.result()
