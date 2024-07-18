@@ -10,7 +10,8 @@ pretrained_checkpoint_dir="${MANIFOLD_DIR}/out/pythia-1b_seq_train_d_10000-ljcp0
 instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_final/1000/"
 max_seq_len=2048
 run_id=${EPOCHSECONDS}
-is_on_tc=false
+is_on_tc=true
+out_dir=""
 ### Default args
 
 while [[ $# -gt 0 ]]; do
@@ -30,6 +31,10 @@ while [[ $# -gt 0 ]]; do
         --is_on_tc)
             is_on_tc=true
             shift 1
+            ;;
+        --out_dir)
+            out_dir="${2:-out_dir}"
+            shift 2
             ;;
         *)
             echo "Invalid option: $1"
@@ -62,17 +67,10 @@ litgpt finetune_full ${pretrained_checkpoint_dir} \
     --train.epochs 1 \
     --train.micro_batch_size 8 \
     --train.lr_warmup_steps 100 \
-    --train.log_interval 100 \
     --eval.interval 500 \
     --train.min_lr 1e-6 \
-    --logger_name tensorboard \
-    --out_dir "${MANIFOLD_DIR}/all_in_one_pretraining/out/post_sft_from_id${run_id}"
+    --train.log_interval 100 \
+    --logger_name wandb \
+    --out_dir $out_dir
 
-echo "Final model saved to ${MANIFOLD_DIR}/all_in_one_pretraining/out/post_sft_from_id${run_id}"
-# mkdir -p  "${MANIFOLD_DIR}/all_in_one_pretraining/post_results/"
-
-# echo -e "\033[32m> Evaluating after pretraining and SFT...\033[0m"
-# litgpt evaluate "${MANIFOLD_DIR}/all_in_one_pretraining/out/post_sft_from_id${run_id}" \
-#     --batch_size 8 \
-#     --out_dir "${MANIFOLD_DIR}/all_in_one_pretraining/post_results/post_sft_from_id${run_id}.json" \
-#     --tasks "gsm8k,arc_easy,mathqa,logiqa2,hellaswag,piqa,commonsense_qa"
+echo "Final model saved to $out_dir
