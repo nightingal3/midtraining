@@ -9,7 +9,8 @@ env_vars = {
     "MANIFOLDFS_BUCKET": "coin",
     "LD_PRELOAD": "/usr/local/fbcode/platform010/lib/libcuda.so:/usr/local/fbcode/platform010/lib/libnvidia-ml.so",
     "TRITON_LIBCUDA_PATH": "/usr/local/fbcode/platform010/lib/libcuda.so",
-    "NCCL_DEBUG": "WARN"
+    "NCCL_DEBUG": "WARN",
+    "DUMP_DIR": "/mnt/mffuse/out/${app_id}",
 }
 
 additional_packages = [
@@ -19,17 +20,17 @@ additional_packages = [
 ]
 
 
-def train(
+def train_seq(
     *script_args: str,
-    name: str = "mixed_train",
-    script: str = "mixed_pretraining.sh",
-    nnodes: int = 1,
+    name: str = "seq_train",
+    script: str = "pretrain_then_finetune.sh",
+    nnodes: int = 2,
     nproc_per_node: int = 8,
-    h: str = "tc_any",
+    h: str = "zionex_80g",
     run_as_root: bool = True,
     env: Optional[dict] = {},
     tb_log: bool = True,
-    out_dir: str = "/mnt/mffuse/out/${app_id}",
+    out_dir: str = "/mnt/mffuse/all_in_one_pretraining/out/${app_id}",
 ) -> specs.AppDef:
     kwargs = {
         "name": name,
@@ -47,8 +48,50 @@ def train(
         "./run.sh",
         script,
         *script_args,
-        f"--out_dir={out_dir}",
-        f"--tb_log={tb_log}",
+        "--out_dir",
+        out_dir,
+        "--is_on_tc",
+    ]
+
+    job_spec = conda.torchrun(*args, **kwargs)
+
+    packages = [job_spec.roles[0].image, *additional_packages]
+    job_spec.roles[0].image = ";".join(packages)
+
+    return job_spec
+
+
+def train_mixed(
+    *script_args: str,
+    script: str = "mixed_pretraining.sh",
+    nnodes: int = 2,
+    nproc_per_node: int = 8,
+    name: str = "mixed_pretraining",
+    h: str = "zionex_80g",
+    run_as_root: bool = True,
+    env: Optional[dict] = {},
+    out_dir: str = "/mnt/mffuse/all_in_one_pretraining/out/${app_id}",
+    tb_log: bool = True,
+) -> specs.AppDef:
+    kwargs = {
+        "name": name,
+        "h": h,
+        "run_as_root": run_as_root,
+        "env": {**env_vars, **env} if env else env_vars,
+    }
+
+    args = [
+        "--nnodes",
+        str(nnodes),
+        "--nproc-per-node",
+        str(nproc_per_node),
+        "--no-python",
+        "./run.sh",
+        script,
+        *script_args,
+        "--logs_dir",
+        out_dir,
+        "--is_on_tc",
     ]
 
     job_spec = conda.torchrun(*args, **kwargs)
@@ -61,20 +104,20 @@ def train(
 
 def train_interactive(
     *script_args: str,
-    script: str = "mixed_pretraining.sh",
+    script: str = "pretrain_then_finetune.sh",
     nnodes: int = 1,
     nproc_per_node: int = 8,
     name: str = "train_interactive",
-    h: str = "tc_any",
+    h: str = "zionex_80g",
     run_as_root: bool = True,
-    out_dir: str = "/mnt/mffuse/out/${app_id}",
+    out_dir: str = "/mnt/mffuse/all_in_one_pretraining/out/${app_id}",
     tb_log: bool = True,
 ) -> specs.AppDef:
     # Set env variable to disable mounting
     # additional_env = {"DISABLE_MOUNT": "1"}
     additional_env = {}
     # define a training job spec
-    job_spec = train(
+    job_spec = train_seq(
         *script_args,
         script=script,
         nnodes=nnodes,
@@ -94,3 +137,85 @@ def train_interactive(
         # prerun the mount command at node startup
         prerun_commands={"torchrun": "source /packages/torchx_conda_mount/mount.sh"},
     )
+
+
+def sft(
+    *script_args: str,
+    name: str = "sft_only",
+    script: str = "sft_only.sh",
+    nnodes: int = 1,
+    nproc_per_node: int = 8,
+    h: str = "zionex_80g",
+    run_as_root: bool = True,
+    env: Optional[dict] = {},
+    tb_log: bool = True,
+    out_dir: str = "/mnt/mffuse/all_in_one_pretraining/out/${app_id}",
+) -> specs.AppDef:
+    kwargs = {
+        "name": name,
+        "h": h,
+        "run_as_root": run_as_root,
+        "env": {**env_vars, **env} if env else env_vars,
+    }
+
+    args = [
+        "--nnodes",
+        str(nnodes),
+        "--nproc-per-node",
+        str(nproc_per_node),
+        "--no-python",
+        "./run.sh",
+        script,
+        *script_args,
+        "--is_on_tc",
+        "--out_dir",
+        out_dir,
+    ]
+
+    job_spec = conda.torchrun(*args, **kwargs)
+
+    packages = [job_spec.roles[0].image, *additional_packages]
+    job_spec.roles[0].image = ";".join(packages)
+
+    return job_spec
+
+
+def evaluate(
+    *script_args: str,
+    script: str = "./eval_chkpts.sh",
+    nnodes: int = 1,
+    nproc_per_node: int = 8,
+    name: str = "evaluate",
+    h: str = "zionex_80g",
+    run_as_root: bool = True,
+    env: Optional[dict] = {},
+    tb_log: bool = True,
+    out_dir: str = "/mnt/mffuse/all_in_one_pretraining/out/${app_id}",
+) -> specs.AppDef:
+    kwargs = {
+        "name": name,
+        "h": h,
+        "run_as_root": run_as_root,
+        "env": {**env_vars, **env} if env else env_vars,
+    }
+
+    args = [
+        "--nnodes",
+        str(nnodes),
+        "--nproc-per-node",
+        str(nproc_per_node),
+        "--no-python",
+        "./run.sh",
+        script,
+        *script_args,
+        "--is_on_tc",
+        "--out_dir",
+        out_dir,
+    ]
+
+    job_spec = conda.torchrun(*args, **kwargs)
+
+    packages = [job_spec.roles[0].image, *additional_packages]
+    job_spec.roles[0].image = ";".join(packages)
+
+    return job_spec
