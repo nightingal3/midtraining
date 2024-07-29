@@ -8,16 +8,18 @@ source configs/.env
 set +a
 
 ### Default args
-
+export CUDA_VISIBLE_DEVICES="5"
 model_name="pythia-1b"
-step=140000
+step="-00045200"
 steps_to_train=100000
 max_seq_len=2048
-checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/${model_name}/"
+checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/pythia-1b/"
 pretraining_data_dir="${FINEWEB_DIR}"
 instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat/"
 run_id=${EPOCHSECONDS}
-
+is_on_tc=false
+decay_lr=false
+out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_raw_pretrained_from_${step}_id${run_id}"
 ### Default args
 
 while [[ $# -gt 0 ]]; do
@@ -54,6 +56,18 @@ while [[ $# -gt 0 ]]; do
             run_id="${2:-$run_id}"
             shift 2
             ;;
+        --is_on_tc)
+            is_on_tc=true
+            shift 1
+            ;;
+        --decay_lr)
+            decay_lr=true
+            shift 1
+            ;;
+        --out_dir)
+            out_dir="${2:-$out_dir}"
+            shift 2
+            ;;
         *)
             echo "Invalid option: $1"
             exit 1
@@ -63,7 +77,20 @@ done
 
 echo -e "\033[32m> The run id is ${run_id}. Please keep this for your records \033[0m"
 
-# $1 = model_name
+
+if [[ $is_on_tc == true ]]; then
+    # mount manifold
+    if [ "$LOCAL_RANK" = "0" ] && [ -z "$DISABLE_MOUNT" ]; then
+        source /packages/conda_mast_core/mount/mount.sh
+    fi
+fi
+
+### Print all settings
+echo "model_name: ${model_name}"
+echo "is on tc: ${is_on_tc}"
+echo "checkpoint dir: ${checkpoint_dir}"
+###
+
 evaluate() {
   echo -e "\033[32m> Evaluating \033[0m"
   with-proxy lm_eval --model hf \
@@ -74,12 +101,12 @@ evaluate() {
 }
 
 # 1) Download a tokenizer
-echo -e "\033[32m> Downloading tokenizer \033[0m"
-litgpt download EleutherAI/$model_name \
-  --tokenizer_only True
+# echo -e "\033[32m> Downloading tokenizer \033[0m"
+# litgpt download EleutherAI/$model_name \
+#   --tokenizer_only True
 
 # 2) Pretrain the model
-if [ ! -d "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
+if [ ! -f "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
     echo -e "\033[32m> Converting model... \033[0m"
     litgpt convert_to_litgpt "${checkpoint_dir}/step${step}" --model_name $model_name
 fi
@@ -94,20 +121,22 @@ pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
 # legit runs should have 20B. Test runs with 1B-5B for sanity checking
 # echo -e "\033[32m> > Pretraining ... \033[0m"
 litgpt pretrain $model_name \
-  --initial_checkpoint_dir "${checkpoint_dir}/step${step}" \
+  --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
   --tokenizer_dir "${checkpoint_dir}/step${step}" \
   --data FineWebDataset \
   --data.data_path "${FINEWEB_DIR}" \
-  --train.micro_batch_size 8 \
+  --train.micro_batch_size 4 \
   --train.max_seq_len $max_seq_len \
   --train.min_lr 1e-6 \
   --train.max_steps ${steps_to_train} \
   --train.save_interval 1000 \
+  --train.log_interval 1 \
   --train.lr_warmup_fraction 0.01 \
+  --train.decay_lr $decay_lr \
   --eval.interval 1000 \
-  --out_dir "out/${model_name}_pretrained_from_${step}_id${run_id}" \
-  --logger_name wandb
-exit 0
+  --out_dir $out_dir \
+  --logger_name tensorboard
+
 pretrained_checkpoint_dir="out/${model_name}_pretrained_from_${step}"
 
 # echo -e "\033[32m> Evaluating after pretraining and sft...\033[0m"
@@ -126,7 +155,7 @@ litgpt finetune_full $pretrained_checkpoint_dir \
   --train.max_seq_len $max_seq_len \
   --train.epochs 5 \
   --train.lr_warmup_steps 100 \
-  --logger_name wandb \
+  --logger_name tensorboard \
   --out_dir "out/${model_name}_pretrained_sft_from_${step}_id${run_id}"
 
 # TODO - need to add some tasks to eval harness.

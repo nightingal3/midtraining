@@ -4,25 +4,28 @@ eval_initial=false
 do_pretrain=true
 do_sft=false
 
-#RUN_ID=$(date +%s)
-#RUN_ID=1719949208
-echo -e "\033[32m> The run id is ${RUN_ID}. Please keep this for your records \033[0m"
 # Read personal user vars
 set -a
 source configs/.env
 set +a
 
 ### Default args
-
+export CUDA_VISIBLE_DEVICES="1"
 model_name="pythia-1b"
 step=140000
 steps_to_train=100000
 max_seq_len=2048
 checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/${model_name}/"
 pretraining_data_dir="${FINEWEB_DIR}"
-instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat/"
+instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat"
+instruction_data_json_2="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/tulu"
+#TODO: testing cycling. switch batck to the non-toy example later
+instruction_data_json_3="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/instruction/hkust-nlp/deita-10k-v0/train.json"
+instruction_data_paths="concat_sft ${instruction_data_json} 0.33,tulu ${instruction_data_json_2} 0.33, deita ${instruction_data_json_3} 0.33"
 run_id=${EPOCHSECONDS}
-
+is_on_tc=false
+out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
+logs_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
 ### Default args
 
 while [[ $# -gt 0 ]]; do
@@ -59,12 +62,37 @@ while [[ $# -gt 0 ]]; do
             run_id="${2:-$run_id}"
             shift 2
             ;;
+        --is_on_tc)
+            is_on_tc=true
+            shift 1
+            ;;
+        --logs_dir)
+            logs_dir="${2:-$logs_dir}"
+            shift 2
+            ;;
         *)
             echo "Invalid option: $1"
             exit 1
             ;;
     esac
 done
+
+echo -e "\033[32m> The run id is ${run_id}. Please keep this for your records \033[0m"
+
+
+### Print all settings
+echo "model_name: ${model_name}"
+echo "is on tc: ${is_on_tc}"
+echo "out_dir: ${out_dir}"
+echo "logs_dir: ${logs_dir}"
+###
+if [[ $is_on_tc == true ]]; then
+  # mount manifold
+  if [ "$LOCAL_RANK" = "0" ] && [ -z "$DISABLE_MOUNT" ]; then
+    source /packages/conda_mast_core/mount/mount.sh
+  fi
+fi
+
 # $1 = checkpoint_dir, $2 - out_dir
 # Note: evaluate always expects a relative path...
 # strange error with litgpt eval - something about .git??
@@ -77,12 +105,7 @@ evaluate() {
     --force_conversion true
 }
 
-# # 1) Download a tokenizer
-litgpt download EleutherAI/$model_name \
-  --tokenizer_only True \
-  --checkpoint_dir "${checkpoint_dir}/step${step}"
-
-if [ ! -d "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
+if [ ! -f "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
     echo -e "\033[32m> Converting model... \033[0m"
     litgpt convert_to_litgpt "${checkpoint_dir}/step${step}" --model_name $model_name
 fi
@@ -96,55 +119,50 @@ pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
 if [[ $do_pretrain == true ]]; then
   if [ $steps_to_train -gt 0 ]; then
     # TODO - train details such as batch size should be passed from a config instead of manually passed in.
-    echo -e "\033[32m> > Pretraining for ${steps_remaining} more steps\033[0m"
+    echo -e "\033[32m> > Pretraining for ${steps_to_train} more steps\033[0m"
 
     # temp hack: need to change max_iters in the dataloader
     # train.lr_warmup_fraction also doesn't seem to be passed through?
 
     litgpt pretrain_mixed $model_name \
       --initial_checkpoint_dir "${checkpoint_dir}/step${step}" \
+      --precision "bf16-true" \
       --tokenizer_dir "${checkpoint_dir}/step${step}" \
       --data MixedDataset \
-      --data.pretraining_data_path $pretraining_data_dir \
-      --data.sft_data_path $instruction_data_json \
-      --train.micro_batch_size 8 \
+      --data.pretraining_data_path ${pretraining_data_dir} \
+      --data.sft_data_paths "${instruction_data_paths}" \
+      --data.use_adaptive_sampling true \
+      --train.micro_batch_size 4 \
       --train.max_seq_len $max_seq_len \
       --train.min_lr 1e-6 \
       --train.max_steps $steps_to_train \
-      --train.save_interval 100 \
+      --train.save_interval 1000 \
       --train.lr_warmup_fraction 0.01 \
+      --train.episode_length 200 \
+      --train.log_interval 1 \
       --eval.interval 100 \
-      --out_dir "${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${RUN_ID}" \
-      --data.num_repeats 4 \
-      --logger_name wandb
-
-    pretrained_checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${RUN_ID}"
-  fi
-
-  echo -e "\033[32m> Evaluating after pretraining...\033[0m"
-  litgpt evaluate "${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${RUN_ID}/final" \
-      --batch_size 16 \
-      --out_dir "${MANIFOLD_DIR}/all_in_one_pretraining/post_results/${model_name}_mixed_posttune_id${RUN_ID}" \
-      --tasks "gsm8k,arc_easy"
+      --eval.max_iters 10 \
+      --out_dir $out_dir \
+      --logs_dir $logs_dir \
+      --data.num_repeats 1
+    fi
 fi
 
 
 if [[ $do_sft == true ]]; then
-  pretrained_checkpoint_dir="${MANIFOLD)DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${RUN_ID}/final"
   echo -e "\033[32m> > SFT \033[0m"
-  litgpt finetune_full $pretrained_checkpoint_dir \
-    --data "JSON" \
-    --data.json_path $instruction_data_json \
-    --train.max_seq_len $max_seq_len \
-    --train.epochs 1 \
-    --train.lr_warmup_steps 100 \
-    --logger_name wandb \
-    --out_dir "${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_sft_from_${step}_id${RUN_ID}"
+  litgpt finetune_full ${out_dir} \
+      --data "JSON" \
+      --data.json_path $instruction_data_json \
+      --train.max_seq_len $max_seq_len \
+      --train.epochs 1 \
+      --train.micro_batch_size 4 \
+      --train.lr_warmup_steps 100 \
+      --eval.interval 500 \
+      --train.min_lr 1e-6 \
+      --train.log_interval 100 \
+      --logger_name wandb \
+      --out_dir "${MANIFOLD_DIR}/all_in_one_pretraining/out/post_sft_from_id${run_id}"
 
-
-  echo -e "\033[32m> Evaluating after pretraining and SFT...\033[0m"
-  litgpt evaluate "${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_sft_from_${step}_id${RUN_ID}/final" \
-      --batch_size 8 \
-      --out_dir "${MANIFOLD_DIR}/all_in_one_pretraining/post_results/${model_name}_mixed_posttune_id${RUN_ID}.json" \
-      --tasks "gsm8k,arc_easy"
+    echo "Final model saved to ${MANIFOLD_DIR}/all_in_one_pretraining/out/post_sft_from_id${run_id}"
 fi
