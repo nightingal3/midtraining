@@ -15,7 +15,13 @@ MANIFOLD_DIR = os.environ["MANIFOLD_DIR"]
 datasets = {
     # TODO: natural instructions already downloaded, unzip and upload to manifold manually
     "pretraining": ["HuggingFaceFW/fineweb-edu"],
-    "instruction": ["databricks/databricks-dolly-15k", "GAIR/lima", "tatsu-lab/alpaca"],
+    "instruction": [
+        "databricks/databricks-dolly-15k",
+        "GAIR/lima",
+        "tatsu-lab/alpaca",
+        "hkust-nlp/deita-10k-v0",
+        "allenai/tulu-v2-sft-mixture",
+    ],
     "sft": [
         "openai/gsm8k",
         "EleutherAI/asdiv",
@@ -24,6 +30,16 @@ datasets = {
         "Rowan/hellaswag",
         "microsoft/wiki_qa",
         "ybisk/piqa",
+    ],
+    "sft_reasoning": [
+        "lighteval/MATH",
+        "openai/gsm8k",
+        "EleutherAI/asdiv",
+        "allenai/ai2_arc",
+        "allenai/sciq",
+        "ChilleD/SVAMP",
+        "microsoft/wiki_qa",
+        "nvidia/OpenMathInstruct-1",
     ],
 }
 
@@ -109,21 +125,65 @@ def format_row(sample: dict, dataset: str) -> dict:
             }
         else:
             return {}
+    elif dataset == "allenai/tulu-v2-sft-mixture":
+        # NOTE: I'm excluding multi-turn conversations for now
+
+        return {
+            "instruction": sample["messages"][0]["content"],
+            "input": "",
+            "output": sample["messages"][1]["content"],
+            "label": len(sample["messages"]) == 2,
+        }
+
+    elif dataset == "hkust-nlp/deita-10k-v0":
+        # NOTE: TODO: since this dataset only has multi-turn convos, just take the first interaction. This should make sense by itself as well in most cases
+        return {
+            "instruction": sample["conversations"][0]["value"],
+            "input": "",
+            "output": sample["conversations"][1]["value"],
+            "label": True,
+        }
+    elif dataset == "lighteval/MATH":
+        return {
+            "instruction": sample["problem"],
+            "input": "",
+            "output": sample["solution"]
+        }
+    elif dataset == "ChilleD/SVAMP":
+        return {
+            "instruction": sample["question_concat"],
+            "input": "",
+            "output": sample["Answer"]
+        }
+    elif dataset == "nvidia/OpenMathInstruct-1":
+        return {
+            "instruction": sample["question"],
+            "input": "",
+            "output": sample["expected_answer"]
+        }
 
     return sample
 
 
 def main(args: argparse.Namespace) -> None:
-    dataset_tuples = [
-        (dataset, type_) for type_, datasets in datasets.items() for dataset in datasets
-    ]
-    to_load = (
-        dataset_tuples
-        if args.type == "all"
-        else [
-            (dataset, type_) for dataset, type_ in dataset_tuples if type_ == args.type
+    if args.dataset:
+        to_load = [(args.dataset, args.type)]
+
+    else:
+        dataset_tuples = [
+            (dataset, type_)
+            for type_, datasets in datasets.items()
+            for dataset in datasets
         ]
-    )
+        to_load = (
+            dataset_tuples
+            if args.type == "all"
+            else [
+                (dataset, type_)
+                for dataset, type_ in dataset_tuples
+                if type_ == args.type
+            ]
+        )
 
     final_cols = ["instruction", "input", "output"]
     all_rows = defaultdict(list)
@@ -137,50 +197,44 @@ def main(args: argparse.Namespace) -> None:
             dataset_dict = load_dataset(dataset, trust_remote_code=True)
 
         for split in dataset_dict.keys():
-            data_path = f"{MANIFOLD_DIR}/all_in_one_pretraining/datasets/{dataset_type}/{dataset}/{split}.json"
+            split_name = split if split != "validation" else "val"
+
+            data_path = f"{MANIFOLD_DIR}/all_in_one_pretraining/datasets/{dataset_type}/{dataset}/{split_name}.json"
             os.makedirs(os.path.dirname(data_path), exist_ok=True)
+
             formatted_dataset = dataset_dict[split].map(
                 partial(format_row, dataset=dataset)
             )
+
             filtered_dataset = [
                 dict(x)
                 for x in formatted_dataset.remove_columns(
                     [
                         col
                         for col in formatted_dataset.column_names
-                        if col not in final_cols
+                        if col not in final_cols and col != "label"
                     ]
                 )
-                if len(dict(x)) > 0
             ]
 
-            if dataset == "microsoft/wiki_qa":
+            if "label" in filtered_dataset[0].keys():
                 filtered_dataset = [
-                    dict(x)
-                    for x in formatted_dataset.remove_columns(
-                        [
-                            col
-                            for col in formatted_dataset.column_names
-                            if col not in final_cols and col != "label"
-                        ]
-                    )
-                    if len(dict(x)) > 0
-                ]
-                filtered_dataset = [
-                    entry for entry in filtered_dataset if entry["label"] == 1
+                    entry for entry in filtered_dataset if entry["label"] == True
                 ]
                 # remove the label now
                 for item in filtered_dataset:
                     del item["label"]
+
+            if dataset == "nvidia/OpenMathInstruct-1" and args.concat_all: 
+                # cap this to 20k rows to not overwhelm the other datasets
+                filtered_dataset = filtered_dataset[:20000]
+
             print(
                 f"Dataset {dataset}, {split} prepared with {len(filtered_dataset)} rows"
             )
 
-            if 1 in filtered_dataset:
-                breakpoint()
-
             if args.concat_all:
-                all_rows[split].extend(filtered_dataset)
+                all_rows[split_name].extend(filtered_dataset)
             else:
                 with open(data_path, "w") as f:
                     json.dump(filtered_dataset, f)
@@ -202,8 +256,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--type",
         type=str,
-        choices=["all", "sft", "instruction", "pretraining"],
+        choices=["all", "sft", "instruction", "pretraining", "flan", "sft_reasoning"],
         default="all",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        help="just download a single dataset. Note: will save the dataset in the type subdir specified",
     )
     parser.add_argument(
         "--concat_all",
@@ -212,4 +271,5 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
     main(args)
