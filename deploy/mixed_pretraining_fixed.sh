@@ -10,18 +10,17 @@ source configs/.env
 set +a
 
 ### Default args
-export CUDA_VISIBLE_DEVICES="1"
 model_name="pythia-1b"
 step="-00045200"
-steps_to_train=10000000
+steps_to_train=100000
 max_seq_len=2048
 checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/${model_name}/"
 pretraining_data_dir="${FINEWEB_DIR}"
-instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat"
+instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning/concat"
 instruction_data_json_2="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/tulu"
 #TODO: testing cycling. switch batck to the non-toy example later
 instruction_data_json_3="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/instruction/hkust-nlp/deita-10k-v0/train.json"
-instruction_data_paths="concat_sft ${instruction_data_json} 0.33,tulu ${instruction_data_json_2} 0.33, deita ${instruction_data_json_3} 0.33"
+instruction_data_paths="concat_sft ${instruction_data_json} 0.33"
 run_id=${EPOCHSECONDS}
 is_on_tc=false
 decay_lr=false
@@ -36,7 +35,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --step)
-            step="${2:-$step}}"
+            step="${2:-$step}"
             shift 2
             ;;
         --steps_to_train)
@@ -72,7 +71,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --out_dir)
-            out_dir="${2:-$logs_dir}"
+            out_dir="${2:-$out_dir}"
             shift 2
             ;;
         --decay_lr)
@@ -134,28 +133,30 @@ if [[ $do_pretrain == true ]]; then
     # train.lr_warmup_fraction also doesn't seem to be passed through?
 
     litgpt pretrain_mixed $model_name \
-      --resume true \
+      --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
       --precision "bf16-true" \
       --tokenizer_dir "${checkpoint_dir}/step${step}" \
       --data MixedDataset \
       --data.pretraining_data_path ${pretraining_data_dir} \
       --data.sft_data_paths "${instruction_data_paths}" \
       --data.use_adaptive_sampling true \
-      --data.initial_sampling_rates "[0.7, 0.2, 0.05, 0.05]" \
-      --train.micro_batch_size 4 \
+      --train.freeze_sampling_rate true \
+      --data.initial_sampling_rates "[0.75, 0.25]" \
+      --train.micro_batch_size 16 \
       --train.max_seq_len $max_seq_len \
       --train.min_lr 1e-6 \
       --train.max_steps $steps_to_train \
-      --train.save_interval 1000 \
+      --train.save_interval 500 \
       --train.lr_warmup_fraction 0.01 \
-      --train.episode_length 200 \
-      --train.log_interval 100 \
+      --train.episode_length 2000 \
+      --train.log_interval 50 \
       --train.decay_lr $decay_lr \
-      --eval.interval 100 \
-      --eval.max_iters 10 \
+      --eval.interval 1000 \
+      --eval.max_iters 100 \
       --out_dir $out_dir \
       --logs_dir $logs_dir \
-      --data.num_repeats 1
+      --data.num_repeats 1 \
+      --logger_name tensorboard
     fi
 fi
 

@@ -8,7 +8,7 @@ source configs/.env
 set +a
 
 ### Default args
-export CUDA_VISIBLE_DEVICES="5"
+export CUDA_VISIBLE_DEVICES="6,7"
 model_name="pythia-1b"
 step="-00045200"
 steps_to_train=100000
@@ -29,7 +29,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --step)
-            step="${2:-$step}}"
+            step="${2:-$step}"
             shift 2
             ;;
         --steps_to_train)
@@ -106,10 +106,10 @@ evaluate() {
 #   --tokenizer_only True
 
 # 2) Pretrain the model
-if [ ! -f "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
-    echo -e "\033[32m> Converting model... \033[0m"
-    litgpt convert_to_litgpt "${checkpoint_dir}/step${step}" --model_name $model_name
-fi
+#if [ ! -f "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
+#    echo -e "\033[32m> Converting model... \033[0m"
+#    litgpt convert_to_litgpt "${checkpoint_dir}/step${step}" --model_name $model_name
+#fi
 
 if [[ $eval_initial == true ]]; then
   echo -e "\033[32m> Evaluating before pretraining...\033[0m"
@@ -129,12 +129,13 @@ litgpt pretrain $model_name \
   --train.max_seq_len $max_seq_len \
   --train.min_lr 1e-6 \
   --train.max_steps ${steps_to_train} \
-  --train.save_interval 1000 \
-  --train.log_interval 1 \
+  --train.save_interval 500 \
+  --train.log_interval 20 \
   --train.lr_warmup_fraction 0.01 \
   --train.decay_lr $decay_lr \
   --eval.interval 1000 \
   --out_dir $out_dir \
+  --logs_dir $out_dir \
   --logger_name tensorboard
 
 pretrained_checkpoint_dir="out/${model_name}_pretrained_from_${step}"

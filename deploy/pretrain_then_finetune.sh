@@ -8,19 +8,17 @@ source configs/.env
 set +a
 
 ### Default args
-
 model_name="pythia-1b"
-step=140000
+step="-00045200"
 steps_to_train=100000
 max_seq_len=2048
-checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/${model_name}/"
+checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/pythia-1b/"
 pretraining_data_dir="${FINEWEB_DIR}"
 instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat/"
 run_id=${EPOCHSECONDS}
 is_on_tc=false
-out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_pretrained_from_${step}_id${run_id}"
-logs_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
-
+decay_lr=false
+out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_raw_pretrained_from_${step}_id${run_id}"
 ### Default args
 
 while [[ $# -gt 0 ]]; do
@@ -30,7 +28,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --step)
-            step="${2:-$step}}"
+            step="${2:-$step}"
             shift 2
             ;;
         --steps_to_train)
@@ -61,12 +59,12 @@ while [[ $# -gt 0 ]]; do
             is_on_tc=true
             shift 1
             ;;
+        --decay_lr)
+            decay_lr=true
+            shift 1
+            ;;
         --out_dir)
             out_dir="${2:-$out_dir}"
-            shift 2
-            ;;
-        --logs_dir)
-            logs_dir="${2:-$logs_dir}"
             shift 2
             ;;
         *)
@@ -107,10 +105,10 @@ evaluate() {
 #   --tokenizer_only True
 
 # 2) Pretrain the model
-if [ ! -f "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
-    echo -e "\033[32m> Converting model... \033[0m"
-    litgpt convert_to_litgpt "${checkpoint_dir}/step${step}" --model_name $model_name
-fi
+#if [ ! -f "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
+    #echo -e "\033[32m> Converting model... \033[0m"
+    #litgpt convert_to_litgpt "${checkpoint_dir}/step${step}" --model_name $model_name
+#fi
 
 if [[ $eval_initial == true ]]; then
   echo -e "\033[32m> Evaluating before pretraining...\033[0m"
@@ -122,23 +120,24 @@ pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
 # legit runs should have 20B. Test runs with 1B-5B for sanity checking
 # echo -e "\033[32m> > Pretraining ... \033[0m"
 litgpt pretrain $model_name \
-  --initial_checkpoint_dir "${checkpoint_dir}/step${step}" \
+  --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
   --tokenizer_dir "${checkpoint_dir}/step${step}" \
   --data FineWebDataset \
   --data.data_path "${FINEWEB_DIR}" \
-  --train.micro_batch_size 8 \
+  --train.micro_batch_size 16 \
   --train.max_seq_len $max_seq_len \
   --train.min_lr 1e-6 \
   --train.max_steps ${steps_to_train} \
-  --train.save_interval 1000 \
-  --train.log_interval 100 \
+  --train.save_interval 500 \
+  --train.log_interval 50 \
   --train.lr_warmup_fraction 0.01 \
+  --train.decay_lr $decay_lr \
   --eval.interval 1000 \
   --out_dir $out_dir \
-  --logs_dir $logs_dir \
+  --logs_dir $out_dir \
   --logger_name tensorboard
 
-pretrained_checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${RUN_ID}"
+pretrained_checkpoint_dir="out/${model_name}_pretrained_from_${step}"
 
 # echo -e "\033[32m> Evaluating after pretraining and sft...\033[0m"
 # litgpt evaluate "out/${model_name}_pretrained_from_${step}/final" \
