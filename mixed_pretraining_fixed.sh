@@ -10,10 +10,11 @@ source configs/.env
 set +a
 
 ### Default args
-export CUDA_VISIBLE_DEVICES="4"
+export CUDA_VISIBLE_DEVICES="6"
 model_name="pythia-1b"
-step="-00045200"
-steps_to_train=100000
+step="-00045000"
+max_iters=10000000
+max_additional_steps=200
 max_seq_len=2048
 checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/${model_name}/"
 pretraining_data_dir="${FINEWEB_DIR}"
@@ -39,8 +40,12 @@ while [[ $# -gt 0 ]]; do
             step="${2:-$step}"
             shift 2
             ;;
-        --steps_to_train)
-            steps_to_train="${2:-$steps_to_train}"
+        --max_additional_steps)
+            max_additional_steps="${2:-$max_additional_steps}"
+            shift 2
+            ;;
+        --max_iters)
+            max_iters="${2:-$max_iters}"
             shift 2
             ;;
         --max_seq_len)
@@ -126,9 +131,9 @@ fi
 
 pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
 if [[ $do_pretrain == true ]]; then
-  if [ $steps_to_train -gt 0 ]; then
+  if [[ $max_iters -gt 0 || $max_additional_steps -gt 0 ]]; then
     # TODO - train details such as batch size should be passed from a config instead of manually passed in.
-    echo -e "\033[32m> > Pretraining for ${steps_to_train} more steps\033[0m"
+    echo -e "\033[32m> > Pretraining for ${max_additional_steps} more steps/${max_iters} iters\033[0m"
 
     # temp hack: need to change max_iters in the dataloader
     # train.lr_warmup_fraction also doesn't seem to be passed through?
@@ -141,16 +146,19 @@ if [[ $do_pretrain == true ]]; then
       --data.pretraining_data_path ${pretraining_data_dir} \
       --data.sft_data_paths "${instruction_data_paths}" \
       --data.use_adaptive_sampling true \
+      --data.pretraining_val_path "${FINEWEB_DIR}/val" \
       --train.freeze_sampling_rate true \
+      --data.prompt_style "mixed_qa" \
       --data.initial_sampling_rates "[0.75, 0.25]" \
-      --train.micro_batch_size 4 \
+      --train.micro_batch_size 8 \
       --train.max_seq_len $max_seq_len \
       --train.min_lr 1e-6 \
-      --train.max_steps $steps_to_train \
+      --train.max_iters $max_iters \
+      --train.max_additional_steps $max_additional_steps \
       --train.save_interval 500 \
       --train.lr_warmup_fraction 0.01 \
       --train.episode_length 2000 \
-      --train.log_interval 20 \
+      --train.log_interval 1 \
       --train.decay_lr $decay_lr \
       --eval.interval 500 \
       --eval.max_iters 100 \
@@ -169,7 +177,7 @@ if [[ $do_sft == true ]]; then
       --data.json_path $instruction_data_json \
       --train.max_seq_len $max_seq_len \
       --train.epochs 1 \
-      --train.micro_batch_size 4 \
+      --train.micro_batch_size 8 \
       --train.lr_warmup_steps 100 \
       --eval.interval 500 \
       --train.min_lr 1e-6 \
