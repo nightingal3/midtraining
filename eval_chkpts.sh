@@ -5,6 +5,7 @@ source configs/.env
 set +a
 
 ### Default args
+<<<<<<< HEAD
 export CUDA_VISIBLE_DEVICES="2"
 root_checkpoint_dir=""
 include_dir=""
@@ -13,6 +14,15 @@ run_id=${EPOCHSECONDS}
 is_on_tc=false
 out_dir=""
 all_tasks="arc_easy,asdiv,sciq,gsm8k,commonsense_qa,hellaswag,logiqa2,piqa,mmlu"
+=======
+export CUDA_VISIBLE_DEVICES="0"
+root_checkpoint_dir=""
+include_dir=""
+tasks="mmlu"
+run_id=${EPOCHSECONDS}
+is_on_tc=false
+out_dir=""
+>>>>>>> c13a49be34d5073d989bef454bd9e0558392f44c
 ### Default args
 
 while [[ $# -gt 0 ]]; do
@@ -63,6 +73,7 @@ find "$root_checkpoint_dir" -type d \( -name "step-*" -o -name "final" \) | whil
     subdir=$(basename "$dir")
     full_path="${root_checkpoint_dir}/${out_dir}/${subdir}"
     mkdir -p "$full_path"
+<<<<<<< HEAD
 
   # Do something with the subdirectory here
     echo -e "\033[32m> Evaluating ${dir} ...\033[0m"
@@ -72,4 +83,13 @@ find "$root_checkpoint_dir" -type d \( -name "step-*" -o -name "final" \) | whil
         --tasks ${all_tasks} \
         --force_conversion true \
         --use_cli false
+=======
+  # Do something with the subdirectory here
+    echo -e "\033[32m> Evaluating ${dir}...\033[0m"
+    litgpt evaluate $dir \
+        --batch_size 16 \
+        --out_dir $full_path \
+        --tasks $tasks \
+        --force_conversion true
+>>>>>>> c13a49be34d5073d989bef454bd9e0558392f44c
 done
