@@ -10,21 +10,30 @@ source configs/.env
 set +a
 
 ### Default args
-export CUDA_VISIBLE_DEVICES="1"
+#export CUDA_VISIBLE_DEVICES="4,5,6,7"
+export CUDA_VISIBLE_DEVICES="5"
+
 model_name="pythia-1b"
-step="-00045200"
-steps_to_train=10000000
+step="-00045000"
+max_iters=10000000
+max_additional_steps=200
 max_seq_len=2048
 checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/${model_name}/"
 pretraining_data_dir="${FINEWEB_DIR}"
-instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat"
-instruction_data_json_2="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/tulu"
+instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning/concat"
+arc_easy_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/allenai/ai2_arc"
+sciq_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/allenai/sciq"
+gsm8k_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/openai/gsm8k/train.json"
+svamp_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/ChilleD/SVAMP/train.json"
+math_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/lighteval/MATH/train.json"
+openmathinstruct_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/nvidia/OpenMathInstruct-1/"
 #TODO: testing cycling. switch batck to the non-toy example later
 instruction_data_json_3="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/instruction/hkust-nlp/deita-10k-v0/train.json"
-instruction_data_paths="concat_sft ${instruction_data_json} 0.33,tulu ${instruction_data_json_2} 0.33, deita ${instruction_data_json_3} 0.33"
+#instruction_data_paths="arc_easy ${arc_easy_dir} 0.33, sciq ${sciq_dir} 0.33, gsm8k ${gsm8k_dir} 0.33, svamp ${svamp_dir} 0.33, math ${math_dir} 0.33, omi ${openmathinstruct_dir} 0.33"
+instruction_data_paths="concat_sft ${instruction_data_json} 0.33, instruction_json ${instruction_data_json_3} 0.33"
 run_id=${EPOCHSECONDS}
 is_on_tc=false
-decay_lr=false
+lr_scheduler="cosine"
 out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
 logs_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
 ### Default args
@@ -36,11 +45,15 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --step)
-            step="${2:-$step}}"
+            step="${2:-$step}"
             shift 2
             ;;
-        --steps_to_train)
-            steps_to_train="${2:-$steps_to_train}"
+        --max_additional_steps)
+            max_additional_steps="${2:-$max_additional_steps}"
+            shift 2
+            ;;
+        --max_iters)
+            max_iters="${2:-$max_iters}"
             shift 2
             ;;
         --max_seq_len)
@@ -76,7 +89,11 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --decay_lr)
-            decay_lr=true
+            lr_scheduler="decay"
+            shift 1
+            ;;
+        --const_lr)
+            lr_scheduler="constant"
             shift 1
             ;;
         *)
@@ -126,33 +143,35 @@ fi
 
 pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
 if [[ $do_pretrain == true ]]; then
-  if [ $steps_to_train -gt 0 ]; then
+  if [[ $max_iters -gt 0 || $max_additional_steps -gt 0 ]]; then
     # TODO - train details such as batch size should be passed from a config instead of manually passed in.
-    echo -e "\033[32m> > Pretraining for ${steps_to_train} more steps\033[0m"
+    echo -e "\033[32m> > Pretraining for ${max_additional_steps} more steps/${max_iters} iters\033[0m"
 
     # temp hack: need to change max_iters in the dataloader
     # train.lr_warmup_fraction also doesn't seem to be passed through?
 
     litgpt pretrain_mixed $model_name \
-      --resume true \
+      --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
       --precision "bf16-true" \
       --tokenizer_dir "${checkpoint_dir}/step${step}" \
       --data MixedDataset \
       --data.pretraining_data_path ${pretraining_data_dir} \
       --data.sft_data_paths "${instruction_data_paths}" \
       --data.use_adaptive_sampling true \
-      --data.initial_sampling_rates "[0.7, 0.2, 0.05, 0.05]" \
-      --train.micro_batch_size 4 \
+      --data.prompt_style "default" \
+      --train.data_scheduler "ts_gp" \
+      --data.initial_sampling_rates "[0.8, 0.1, 0.1]" \
+      --train.micro_batch_size 8 \
       --train.max_seq_len $max_seq_len \
       --train.min_lr 1e-6 \
-      --train.max_steps $steps_to_train \
+      --train.max_additional_steps $max_additional_steps \
       --train.save_interval 1000 \
       --train.lr_warmup_fraction 0.01 \
-      --train.episode_length 200 \
-      --train.log_interval 100 \
-      --train.decay_lr $decay_lr \
-      --eval.interval 100 \
-      --eval.max_iters 10 \
+      --train.episode_length 500 \
+      --train.log_interval 10\
+      --train.lr_scheduler $lr_scheduler \
+      --eval.interval 1000 \
+      --eval.max_iters 200 \
       --out_dir $out_dir \
       --logs_dir $logs_dir \
       --data.num_repeats 1

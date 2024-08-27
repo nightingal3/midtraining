@@ -8,10 +8,11 @@ source configs/.env
 set +a
 
 ### Default args
-export CUDA_VISIBLE_DEVICES="6,7"
+export CUDA_VISIBLE_DEVICES="6"
 model_name="pythia-1b"
-step="-00045200"
-steps_to_train=100000
+step="-00045000"
+max_iters=10000000
+max_additional_steps=200
 max_seq_len=2048
 checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/pythia-1b/"
 pretraining_data_dir="${FINEWEB_DIR}"
@@ -32,8 +33,12 @@ while [[ $# -gt 0 ]]; do
             step="${2:-$step}"
             shift 2
             ;;
-        --steps_to_train)
-            steps_to_train="${2:-$steps_to_train}"
+        --max_additional_steps)
+            max_additional_steps="${2:-$max_additional_steps}"
+            shift 2
+            ;;
+        --max_iters)
+            max_iters="${2:-$max_iters}"
             shift 2
             ;;
         --max_seq_len)
@@ -124,13 +129,15 @@ litgpt pretrain $model_name \
   --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
   --tokenizer_dir "${checkpoint_dir}/step${step}" \
   --data FineWebDataset \
-  --data.data_path "${FINEWEB_DIR}" \
-  --train.micro_batch_size 4 \
+  --data.data_path $pretraining_data_dir \
+  --data.val_data_path "${FINEWEB_DIR}/val" \
+  --train.micro_batch_size 16 \
   --train.max_seq_len $max_seq_len \
   --train.min_lr 1e-6 \
-  --train.max_steps ${steps_to_train} \
+  --train.max_iters ${max_iters} \
+  --train.max_additional_steps $max_additional_steps \
   --train.save_interval 500 \
-  --train.log_interval 20 \
+  --train.log_interval 1 \
   --train.lr_warmup_fraction 0.01 \
   --train.decay_lr $decay_lr \
   --eval.interval 1000 \

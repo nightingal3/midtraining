@@ -10,7 +10,7 @@ source configs/.env
 set +a
 
 ### Default args
-export CUDA_VISIBLE_DEVICES="6"
+#export CUDA_VISIBLE_DEVICES="6"
 model_name="pythia-1b"
 step="-00045000"
 max_iters=10000000
@@ -24,10 +24,12 @@ instruction_data_json_2="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/tulu"
 instruction_data_json_3="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/instruction/hkust-nlp/deita-10k-v0/train.json"
 instruction_data_paths="concat_sft ${instruction_data_json} 0.33"
 run_id=${EPOCHSECONDS}
-is_on_tc=false
-decay_lr=true
+is_on_tc=true
 out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
 logs_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
+data_ratios="[0.75, 0.25]"
+sft_template="default"
+lr_scheduler="cosine"
 ### Default args
 
 while [[ $# -gt 0 ]]; do
@@ -48,6 +50,14 @@ while [[ $# -gt 0 ]]; do
             max_iters="${2:-$max_iters}"
             shift 2
             ;;
+        --data_ratios)
+            data_ratios="${2:-$data_ratios}"
+            shift 2
+            ;;
+        --sft_template)
+            sft_tempalte="${2:-$sft_template}"
+            shift 2
+            ;;
         --max_seq_len)
             max_seq_len="${2:-$max_seq_len}"
             shift 2
@@ -60,8 +70,8 @@ while [[ $# -gt 0 ]]; do
             pretraining_data_dir="${2:-$pretraining_data_dir}"
             shift 2
             ;;
-        --instruction_data_json)
-            instruction_data_json="${2:-$instruction_data_json}"
+        --instruction_data_paths)
+            instruction_data_paths="${2:-$instruction_data_paths}"
             shift 2
             ;;
         --run_id)
@@ -81,7 +91,11 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --decay_lr)
-            decay_lr=true
+            lr_scheduler="decay"
+            shift 1
+            ;;
+        --const_lr)
+            lr_scheduler="constant"
             shift 1
             ;;
         *)
@@ -99,6 +113,7 @@ echo "model_name: ${model_name}"
 echo "is on tc: ${is_on_tc}"
 echo "out_dir: ${out_dir}"
 echo "logs_dir: ${logs_dir}"
+echo "data ratios; ${data_ratios}"
 ###
 if [[ $is_on_tc == true ]]; then
   # mount manifold
@@ -137,6 +152,7 @@ if [[ $do_pretrain == true ]]; then
 
     # temp hack: need to change max_iters in the dataloader
     # train.lr_warmup_fraction also doesn't seem to be passed through?
+    echo "data ratios: ${data_ratios}"
 
     litgpt pretrain_mixed $model_name \
       --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
@@ -148,8 +164,8 @@ if [[ $do_pretrain == true ]]; then
       --data.use_adaptive_sampling true \
       --data.pretraining_val_path "${FINEWEB_DIR}/val" \
       --train.freeze_sampling_rate true \
-      --data.prompt_style "mixed_qa" \
-      --data.initial_sampling_rates "[0.75, 0.25]" \
+      --data.prompt_style $sft_template \
+      --data.initial_sampling_rates "${data_ratios}" \
       --train.micro_batch_size 8 \
       --train.max_seq_len $max_seq_len \
       --train.min_lr 1e-6 \
@@ -159,7 +175,7 @@ if [[ $do_pretrain == true ]]; then
       --train.lr_warmup_fraction 0.01 \
       --train.episode_length 2000 \
       --train.log_interval 1 \
-      --train.decay_lr $decay_lr \
+      --train.lr_scheduler $lr_scheduler \
       --eval.interval 500 \
       --eval.max_iters 100 \
       --out_dir $out_dir \
