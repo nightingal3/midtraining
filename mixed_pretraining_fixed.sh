@@ -30,7 +30,32 @@ logs_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_fr
 data_ratios="[0.75, 0.25]"
 sft_template="default"
 lr_scheduler="cosine"
+micro_batch_size=16
+log_interval=10
 ### Default args
+
+echo_all_params() {
+    echo "All parameters (including defaults):"
+    echo "------------------------------------"
+    echo "model_name: $model_name"
+    echo "step: $step"
+    echo "max_iters: $max_iters"
+    echo "max_additional_steps: $max_additional_steps"
+    echo "max_seq_len: $max_seq_len"
+    echo "checkpoint_dir: $checkpoint_dir"
+    echo "pretraining_data_dir: $pretraining_data_dir"
+    echo "instruction_data_paths: $instruction_data_paths"
+    echo "run_id: $run_id"
+    echo "is_on_tc: $is_on_tc"
+    echo "out_dir: $out_dir"
+    echo "logs_dir: $logs_dir"
+    echo "data_ratios: $data_ratios"
+    echo "sft_template: $sft_template"
+    echo "lr_scheduler: $lr_scheduler"
+    echo "micro_batch_size: $micro_batch_size"
+    echo "log_interval: $log_interval"
+    echo "------------------------------------"
+}
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -154,6 +179,8 @@ if [[ $do_pretrain == true ]]; then
     # train.lr_warmup_fraction also doesn't seem to be passed through?
     echo "data ratios: ${data_ratios}"
 
+    echo_all_params | tee "${out_dir}/run_settings.txt"
+
     litgpt pretrain_mixed $model_name \
       --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
       --precision "bf16-true" \
@@ -166,7 +193,7 @@ if [[ $do_pretrain == true ]]; then
       --train.freeze_sampling_rate true \
       --data.prompt_style $sft_template \
       --data.initial_sampling_rates "${data_ratios}" \
-      --train.micro_batch_size 8 \
+      --train.micro_batch_size $micro_batch_size \
       --train.max_seq_len $max_seq_len \
       --train.min_lr 1e-6 \
       --train.max_iters $max_iters \
@@ -174,7 +201,7 @@ if [[ $do_pretrain == true ]]; then
       --train.save_interval 500 \
       --train.lr_warmup_fraction 0.01 \
       --train.episode_length 2000 \
-      --train.log_interval 1 \
+      --train.log_interval $log_interval \
       --train.lr_scheduler $lr_scheduler \
       --eval.interval 500 \
       --eval.max_iters 100 \

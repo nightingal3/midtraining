@@ -8,7 +8,6 @@ source configs/.env
 set +a
 
 ### Default args
-export CUDA_VISIBLE_DEVICES="6"
 model_name="pythia-1b"
 step="-00045000"
 max_iters=10000000
@@ -19,9 +18,35 @@ pretraining_data_dir="${FINEWEB_DIR}"
 instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat/"
 run_id=${EPOCHSECONDS}
 is_on_tc=false
-decay_lr=false
+lr_scheduler="cosine"
 out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_raw_pretrained_from_${step}_id${run_id}"
+micro_batch_size=16
+log_interval=10
 ### Default args
+
+
+echo_all_params() {
+    echo "All parameters (including defaults):"
+    echo "------------------------------------"
+    echo "model_name: $model_name"
+    echo "step: $step"
+    echo "max_iters: $max_iters"
+    echo "max_additional_steps: $max_additional_steps"
+    echo "max_seq_len: $max_seq_len"
+    echo "checkpoint_dir: $checkpoint_dir"
+    echo "pretraining_data_dir: $pretraining_data_dir"
+    echo "instruction_data_paths: $instruction_data_paths"
+    echo "run_id: $run_id"
+    echo "is_on_tc: $is_on_tc"
+    echo "out_dir: $out_dir"
+    echo "logs_dir: $logs_dir"
+    echo "data_ratios: $data_ratios"
+    echo "sft_template: $sft_template"
+    echo "lr_scheduler: $lr_scheduler"
+    echo "micro_batch_size: $micro_batch_size"
+    echo "log_interval: $log_interval"
+    echo "------------------------------------"
+}
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -66,7 +91,11 @@ while [[ $# -gt 0 ]]; do
             shift 1
             ;;
         --decay_lr)
-            decay_lr=true
+            lr_scheduler="decay"
+            shift 1
+            ;;
+        --const_lr)
+            lr_scheduler="constant"
             shift 1
             ;;
         --out_dir)
@@ -125,21 +154,23 @@ pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
 # TODO - train details such as batch size should be passed from a config instead of manually passed in.
 # legit runs should have 20B. Test runs with 1B-5B for sanity checking
 # echo -e "\033[32m> > Pretraining ... \033[0m"
+
+
 litgpt pretrain $model_name \
   --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
   --tokenizer_dir "${checkpoint_dir}/step${step}" \
   --data FineWebDataset \
   --data.data_path $pretraining_data_dir \
   --data.val_data_path "${FINEWEB_DIR}/val" \
-  --train.micro_batch_size 16 \
+  --train.micro_batch_size $micro_batch_size \
   --train.max_seq_len $max_seq_len \
   --train.min_lr 1e-6 \
   --train.max_iters ${max_iters} \
   --train.max_additional_steps $max_additional_steps \
   --train.save_interval 500 \
-  --train.log_interval 1 \
+  --train.log_interval $log_interval \
   --train.lr_warmup_fraction 0.01 \
-  --train.decay_lr $decay_lr \
+  --train.lr_scheduler $lr_scheduler \
   --eval.interval 1000 \
   --out_dir $out_dir \
   --logs_dir $out_dir \

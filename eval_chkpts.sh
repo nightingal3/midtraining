@@ -4,25 +4,26 @@ set -a
 source configs/.env
 set +a
 
+get_next_available_gpu() {
+    # Get the GPU with the lowest memory usage
+    GPU_ID=$(nvidia-smi --query-gpu=memory.used,index --format=csv,nounits,noheader | sort -n | awk '{print $2}' | head -n 1)
+    echo $GPU_ID
+}
+
 ### Default args
-<<<<<<< HEAD
-export CUDA_VISIBLE_DEVICES="2"
+NEXT_GPU=$(get_next_available_gpu)
+export CUDA_VISIBLE_DEVICES="$NEXT_GPU"
+#export CUDA_VISIBLE_DEVICES="6,7"
+echo "Automatically selected GPU: $NEXT_GPU"
+
 root_checkpoint_dir=""
 include_dir=""
-tasks="sciq"
 run_id=${EPOCHSECONDS}
 is_on_tc=false
-out_dir=""
-all_tasks="arc_easy,asdiv,sciq,gsm8k,commonsense_qa,hellaswag,logiqa2,piqa,mmlu"
-=======
-export CUDA_VISIBLE_DEVICES="0"
-root_checkpoint_dir=""
-include_dir=""
-tasks="mmlu"
-run_id=${EPOCHSECONDS}
-is_on_tc=false
-out_dir=""
->>>>>>> c13a49be34d5073d989bef454bd9e0558392f44c
+out_dir="evals"
+all_tasks="arc_easy,asdiv,sciq,gsm8k,commonsense_qa,hellaswag,logiqa2,piqa,mmlu,mathqa,svamp"
+#all_tasks="mmlu"
+#remaining_tasks="mathqa,svamp,wikiqa,bbh"
 ### Default args
 
 while [[ $# -gt 0 ]]; do
@@ -69,11 +70,13 @@ if [[ $is_on_tc == true ]]; then
   fi
 fi
 
-find "$root_checkpoint_dir" -type d \( -name "step-*" -o -name "final" \) | while read -r dir; do
+# NOTE change this back
+#find "$root_checkpoint_dir" -type d \( -name "final" -o -name "step-*" \) | while read -r dir; do
+find "$root_checkpoint_dir" -type d \( -name "final" \) | while read -r dir; do
     subdir=$(basename "$dir")
     full_path="${root_checkpoint_dir}/${out_dir}/${subdir}"
+    #full_path="../manifold/all_in_one_pretraining/training_analysis/pythia-1b-fw/evals/${subdir}"
     mkdir -p "$full_path"
-<<<<<<< HEAD
 
   # Do something with the subdirectory here
     echo -e "\033[32m> Evaluating ${dir} ...\033[0m"
@@ -82,14 +85,7 @@ find "$root_checkpoint_dir" -type d \( -name "step-*" -o -name "final" \) | whil
         --out_dir $full_path \
         --tasks ${all_tasks} \
         --force_conversion true \
-        --use_cli false
-=======
-  # Do something with the subdirectory here
-    echo -e "\033[32m> Evaluating ${dir}...\033[0m"
-    litgpt evaluate $dir \
-        --batch_size 16 \
-        --out_dir $full_path \
-        --tasks $tasks \
-        --force_conversion true
->>>>>>> c13a49be34d5073d989bef454bd9e0558392f44c
+        --num_fewshot 5 \
+        --use_cli false \
+        --parallelize true
 done
