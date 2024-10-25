@@ -12,8 +12,8 @@ get_next_available_gpu() {
 
 ### Default args
 NEXT_GPU=$(get_next_available_gpu)
-export CUDA_VISIBLE_DEVICES="$NEXT_GPU"
-#export CUDA_VISIBLE_DEVICES="6,7"
+#export CUDA_VISIBLE_DEVICES="$NEXT_GPU"
+export CUDA_VISIBLE_DEVICES="0,1,2,3"
 echo "Automatically selected GPU: $NEXT_GPU"
 
 root_checkpoint_dir=""
@@ -74,7 +74,7 @@ fi
 #find "$root_checkpoint_dir" -type d \( -name "final" -o -name "step-*" \) | while read -r dir; do
 find "$root_checkpoint_dir" -type d \( -name "final" \) | while read -r dir; do
     subdir=$(basename "$dir")
-    full_path="${root_checkpoint_dir}/${out_dir}/${subdir}"
+    full_path="${root_checkpoint_dir}/${out_dir}_5_shot/${subdir}"
     #full_path="../manifold/all_in_one_pretraining/training_analysis/pythia-1b-fw/evals/${subdir}"
     mkdir -p "$full_path"
 
@@ -86,6 +86,6 @@ find "$root_checkpoint_dir" -type d \( -name "final" \) | while read -r dir; do
         --tasks ${all_tasks} \
         --force_conversion true \
         --num_fewshot 5 \
-        --use_cli false \
+        --use_cli true \
         --parallelize true
 done

@@ -4,16 +4,15 @@ source configs/.env
 set +a
 
 ### Default args
-export CUDA_VISIBLE_DEVICES="3"
+export CUDA_VISIBLE_DEVICES="5"
 root_path=""
 root_checkpoint_dirs=()
 include_dir=""
 run_id=${EPOCHSECONDS}
 is_on_tc=false
-out_dir=""
-all_tasks="arc_easy,asdiv,sciq,gsm8k,commonsense_qa,hellaswag,logiqa2,piqa,mmlu"
-remaining_tasks="mathqa,svamp"
-
+out_dir="evals"
+#all_tasks="arc_easy,asdiv,sciq,gsm8k,commonsense_qa,hellaswag,logiqa2,piqa,mmlu,mathqa,svamp"
+all_tasks="mmlu"
 ### Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -76,17 +75,27 @@ fi
 
 for root_checkpoint_dir in "${root_checkpoint_dirs[@]}"; do
     echo -e "\033[34m> Processing checkpoints in ${root_checkpoint_dir} ...\033[0m"
-
+    # NOTE: change this back to -* later just wanted to have quick comparison
+    #find "$root_checkpoint_dir" -type d \( -name "step-00*" \) | while read -r dir; do
     find "$root_checkpoint_dir" -type d \( -name "step-*" -o -name "final" \) | while read -r dir; do
+    #find "$root_checkpoint_dir" -type d -name "final" | while read -r dir; do
+
         subdir=$(basename "$dir")
         full_path="${root_checkpoint_dir}/${out_dir}/${subdir}"
+        if [[ -d $full_path ]]; then # somehow this sometimes causes a problem if model files copied but eval crashed
+            if [[ -f "${full_path}/results.json" ]]; then
+                echo "Done evaluating this path, continuing..."
+                continue
+            fi
+            rm -rf $full_path
+        fi
         mkdir -p "$full_path"
 
         echo -e "\033[32m> Evaluating ${dir} ...\033[0m"
         litgpt evaluate "$dir" \
             --batch_size 16 \
             --out_dir "$full_path" \
-            --tasks ${remaining_tasks} \
+            --tasks ${all_tasks} \
             --force_conversion true \
             --use_cli false
     done
