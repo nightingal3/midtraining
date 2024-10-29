@@ -13,7 +13,7 @@ set +a
 
 ### Default args
 
-model_name="pythia-1b"
+model_name="pythia-6.9b"
 step=140000
 steps_to_train=100000
 max_seq_len=2048
@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --step)
-            step="${2:-$step}}"
+            step="${2:-$step}"
             shift 2
             ;;
         --steps_to_train)
@@ -123,12 +123,13 @@ if [[ $do_pretrain == true ]]; then
     # train.lr_warmup_fraction also doesn't seem to be passed through?
 
     litgpt pretrain_mixed $model_name \
+      --precision "bf16-true" \
       --initial_checkpoint_dir "${checkpoint_dir}/step${step}" \
       --tokenizer_dir "${checkpoint_dir}/step${step}" \
       --data MixedDataset \
       --data.pretraining_data_path $pretraining_data_dir \
       --data.sft_data_path $instruction_data_json \
-      --train.micro_batch_size 8 \
+      --train.micro_batch_size 1 \
       --train.max_seq_len $max_seq_len \
       --train.min_lr 1e-6 \
       --train.max_steps $steps_to_train \

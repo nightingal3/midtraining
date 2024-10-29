@@ -1,0 +1,22 @@
+model_configs:
+  base_pythia_1b_200:
+    name: "pythia-1b"
+    path: "${MANIFOLD_DIR}/scaling_mates/out/pythia-1b/fineweb/sample-100BT/step-00045200"
+  base_pythia_1b_4500:
+    name: "pythia-1b"
+    path: "${MANIFOLD_DIR}/scaling_mates/out/pythia-1b/fineweb/sample-100BT/step-00045200"
+  knowledgeqa_pythia_1b_200:
+    name: "pythia-1b"
+    path: "${MANIFOLD_DIR}/all_in_one_pretraining/out/detailed_exps/minicpm_data/decay_from_45000_with_sft_and_input_0-5_pre_mates_default_for_200steps_cpm/final/"
+  knowledgeqa_pythia_1b_4500:
+    name: "pythia-1b"
+    path: "${MANIFOLD_DIR}/all_in_one_pretraining/out/detailed_exps/minicpm_data/decay_from_45000_with_sft_and_input_0-5_pre_mates_default_for_4500steps_cpm/final/"
+  base_pythia_7b_200:
+    name: "pythia-6.9b"
+    path: "${MANIFOLD_DIR}/all_in_one_pretraining/out/pythia-7b/decay_from_100000_fw_for_200steps/final"
+  base_pythia_7b_4500:
+    name: "pythia-6.9b"
+    path: "${MANIFOLD_DIR}/all_in_one_pretraining/out/pythia-7b/decay_from_100000_with_sft_and_input_0_pre_fw_default_for_4500steps_cpm/final"
+  knowledgeqa_pythia_7b_4500:
+    name: "pythia-6.9b"
+    path: "${MANIFOLD_DIR}/all_in_one_pretraining/out/pythia-7b/decay_from_100000_with_sft_and_input_0_pre_mates_default_for_4500steps_cpm/final/"

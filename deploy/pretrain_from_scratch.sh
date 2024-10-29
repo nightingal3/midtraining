@@ -9,22 +9,22 @@ set +a
 
 ### Default args
 model_name="pythia-1b"
-step="-00045000"
-max_iters=10000000
-max_additional_steps=200
+max_additional_steps=287000 # 300BT
 max_seq_len=2048
-checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/pythia-1b/"
-pretraining_data_dir="${FINEWEB_DIR}"
+max_iters=1000000000000
+tokenizer_dir="${MANIFOLD_DIR}/all_in_one_pretraining/base_tokenizers/checkpoints/EleutherAI/pythia-1b"
+pretraining_data_dir="${FINEWEB_350_DIR}/train"
 instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat/"
 run_id=${EPOCHSECONDS}
 is_on_tc=true
-lr_scheduler="cosine"
+lr_scheduler="wsd"
 out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_raw_pretrained_from_${step}_id${run_id}"
-micro_batch_size=1
-log_interval=100
-tokenizer_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/pythia-1b/"
+micro_batch_size=16
+nnodes=1
+log_interval=200
+max_lr=0.01
+resume=false
 ### Default args
-
 
 echo_all_params() {
     echo "All parameters (including defaults):"
@@ -54,6 +54,10 @@ while [[ $# -gt 0 ]]; do
         --model_name)
             model_name="${2:-$model_name}"
             shift 2
+            ;;
+        --resume)
+            resume=true
+            shift 1
             ;;
         --step)
             step="${2:-$step}"
@@ -111,6 +115,14 @@ while [[ $# -gt 0 ]]; do
             tokenizer_dir="${2:-$tokenizer_dir}"
             shift 2
             ;;
+        --max_lr)
+            max_lr="${2:-$max_lr}"
+            shift 2
+            ;;
+        --micro_batch_size)
+            micro_batch_size="${2:-$micro_batch_size}"
+            shift 2
+            ;;
         *)
             echo "Invalid option: $1"
             exit 1
@@ -127,14 +139,15 @@ if [[ $is_on_tc == true ]]; then
         source /packages/conda_mast_core/mount/mount.sh
     fi
 fi
-global_batch_size=$((512/$nnodes))
 
+global_batch_size=$(( 512 / $nnodes ))
 ### Print all settings
 echo "model_name: ${model_name}"
 echo "is on tc: ${is_on_tc}"
-echo "checkpoint dir: ${checkpoint_dir}"
-echo "global batch size: $global_batch_size"
+echo "global bs: $global_batch_size"
+echo "steps: $max_additional_steps"
 ###
+
 
 evaluate() {
   echo -e "\033[32m> Evaluating \033[0m"
@@ -145,53 +158,61 @@ evaluate() {
     --output_path base_results
 }
 
-# 1) Download a tokenizer
-# echo -e "\033[32m> Downloading tokenizer \033[0m"
-# litgpt download EleutherAI/$model_name \
-#   --tokenizer_only True
-
-# 2) Pretrain the model
-#if [ ! -f "${checkpoint_dir}/step${step}/lit_model.pth" ]; then
-#    echo -e "\033[32m> Converting model... \033[0m"
-#    litgpt convert_to_litgpt "${checkpoint_dir}/step${step}" --model_name $model_name
-#fi
-
 if [[ $eval_initial == true ]]; then
   echo -e "\033[32m> Evaluating before pretraining...\033[0m"
   evaluate "${checkpoint_dir}/step${step}"
 fi
 
-pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
-# TODO - train details such as batch size should be passed from a config instead of manually passed in.
-# legit runs should have 20B. Test runs with 1B-5B for sanity checking
-# echo -e "\033[32m> > Pretraining ... \033[0m"
+if [[ $resume == true ]]; then
+    echo -e "\033[32m> Resuming from ${out_dir}..."
 
-
-litgpt pretrain $model_name \
-  --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
-  --tokenizer_dir $tokenizer_dir \
-  --data FineWebDataset \
-  --data.data_path $pretraining_data_dir \
-  --data.val_data_path "${FINEWEB_DIR}/val" \
-  --train.micro_batch_size $micro_batch_size \
-  --train.max_seq_len $max_seq_len \
-  --train.min_lr 1e-6 \
-  --train.max_iters ${max_iters} \
-  --train.max_additional_steps $max_additional_steps \
-  --train.save_interval 1000 \
-  --train.log_interval $log_interval \
-  --train.lr_warmup_fraction 0.01 \
-  --train.lr_scheduler $lr_scheduler \
-  --train.global_batch_size $global_batch_size \
-  --eval.interval 1000 \
-  --out_dir $out_dir \
-  --logs_dir $out_dir \
-  --logger_name tensorboard
-
-pretrained_checkpoint_dir="out/${model_name}_pretrained_from_${step}"
-
-# echo -e "\033[32m> Evaluating after pretraining and sft...\033[0m"
-# litgpt evaluate "out/${model_name}_pretrained_from_${step}/final" \
-#     --batch_size 8 \
-#     --out_dir "post_results/${model_name}_pretrained_id${run_id}" \
-#     --tasks "gsm8k,arc_easy"
+    litgpt pretrain $model_name \
+        --resume true \
+        --tokenizer_dir $tokenizer_dir \
+        --precision "bf16-true" \
+        --data FineWebDataset \
+        --data.data_path $pretraining_data_dir \
+        --data.val_data_path "${FINEWEB_350_DIR}/val" \
+        --train.micro_batch_size $micro_batch_size \
+        --train.max_seq_len $max_seq_len \
+        --train.min_lr 1e-6 \
+        --train.max_iters ${max_iters} \
+        --train.max_additional_steps $max_additional_steps \
+        --train.save_interval 5000 \
+        --train.log_interval $log_interval \
+        --train.lr_warmup_fraction 0.01 \
+        --train.lr_scheduler $lr_scheduler  \
+        --train.stable_steps $max_additional_steps \
+        --train.global_batch_size $global_batch_size \
+        --eval.interval 2000 \
+        --optimizer.class_path torch.optim.AdamW \
+        --optimizer.init_args.lr $max_lr \
+        --out_dir $out_dir \
+        --logs_dir $out_dir \
+        --logger_name tensorboard
+else
+    echo -e "\033[32m> No existing checkpoints found. Starting fresh training run... \033[0m"
+    litgpt pretrain $model_name \
+        --tokenizer_dir $tokenizer_dir \
+        --precision "bf16-true" \
+        --data FineWebDataset \
+        --data.data_path $pretraining_data_dir \
+        --data.val_data_path "${FINEWEB_350_DIR}/val" \
+        --train.micro_batch_size $micro_batch_size \
+        --train.max_seq_len $max_seq_len \
+        --train.min_lr 1e-6 \
+        --train.max_iters ${max_iters} \
+        --train.max_additional_steps $max_additional_steps \
+        --train.save_interval 1000 \
+        --train.log_interval $log_interval \
+        --train.lr_warmup_fraction 0.01 \
+        --train.lr_scheduler $lr_scheduler \
+        --train.stable_steps $max_additional_steps \
+        --train.global_batch_size $global_batch_size \
+        --eval.interval 1000 \
+        --optimizer.class_path torch.optim.AdamW \
+        --optimizer.init_args.lr $max_lr \
+        --out_dir $out_dir \
+        --logs_dir $out_dir \
+        --logger_name tensorboard
+fi

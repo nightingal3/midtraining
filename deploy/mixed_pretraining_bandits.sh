@@ -18,43 +18,20 @@ max_seq_len=2048
 checkpoint_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/${model_name}/"
 pretraining_data_dir="${FINEWEB_DIR}"
 instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning/concat"
-instruction_data_json_2="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/tulu"
+arc_easy_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/allenai/ai2_arc"
+sciq_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/allenai/sciq"
+gsm8k_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/openai/gsm8k/train.json"
+svamp_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/ChilleD/SVAMP/train.json"
+math_dir="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft_reasoning_full/lighteval/MATH/train.json"
 #TODO: testing cycling. switch batck to the non-toy example later
 instruction_data_json_3="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/instruction/hkust-nlp/deita-10k-v0/train.json"
 instruction_data_paths="concat_sft ${instruction_data_json} 0.33"
 run_id=${EPOCHSECONDS}
 is_on_tc=false
+decay_lr=false
 out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
 logs_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_mixtrained_from_${step}_id${run_id}"
-data_ratios="[0.75, 0.25]"
-sft_template="default"
-lr_scheduler="cosine"
 ### Default args
-
-
-# echo_all_params() {
-#     echo "All parameters (including defaults):"
-#     echo "------------------------------------"
-#     echo "model_name: $model_name"
-#     echo "step: $step"
-#     echo "max_iters: $max_iters"
-#     echo "max_additional_steps: $max_additional_steps"
-#     echo "max_seq_len: $max_seq_len"
-#     echo "checkpoint_dir: $checkpoint_dir"
-#     echo "pretraining_data_dir: $pretraining_data_dir"
-#     echo "instruction_data_paths: $instruction_data_paths"
-#     echo "run_id: $run_id"
-#     echo "is_on_tc: $is_on_tc"
-#     echo "out_dir: $out_dir"
-#     echo "logs_dir: $logs_dir"
-#     echo "data_ratios: $data_ratios"
-#     echo "sft_template: $sft_template"
-#     echo "lr_scheduler: $lr_scheduler"
-#     echo "micro_batch_size: $micro_batch_size"
-#     echo "log_interval: $log_interval"
-#     echo "------------------------------------"
-# }
-
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -74,14 +51,6 @@ while [[ $# -gt 0 ]]; do
             max_iters="${2:-$max_iters}"
             shift 2
             ;;
-        --data_ratios)
-            data_ratios="${2:-$data_ratios}"
-            shift 2
-            ;;
-        --sft_template)
-            sft_tempalte="${2:-$sft_template}"
-            shift 2
-            ;;
         --max_seq_len)
             max_seq_len="${2:-$max_seq_len}"
             shift 2
@@ -94,8 +63,8 @@ while [[ $# -gt 0 ]]; do
             pretraining_data_dir="${2:-$pretraining_data_dir}"
             shift 2
             ;;
-        --instruction_data_paths)
-            instruction_data_paths="${2:-$instruction_data_paths}"
+        --instruction_data_json)
+            instruction_data_json="${2:-$instruction_data_json}"
             shift 2
             ;;
         --run_id)
@@ -106,20 +75,16 @@ while [[ $# -gt 0 ]]; do
             is_on_tc=true
             shift 1
             ;;
-        --out_dir)
-            out_dir="${2:-$out_dir}"
-            shift 2
-            ;;
         --logs_dir)
             logs_dir="${2:-$logs_dir}"
             shift 2
             ;;
-        --decay_lr)
-            lr_scheduler="decay"
-            shift 1
+        --out_dir)
+            out_dir="${2:-$logs_dir}"
+            shift 2
             ;;
-        --const_lr)
-            lr_scheduler="constant"
+        --decay_lr)
+            decay_lr=true
             shift 1
             ;;
         *)
@@ -137,7 +102,6 @@ echo "model_name: ${model_name}"
 echo "is on tc: ${is_on_tc}"
 echo "out_dir: ${out_dir}"
 echo "logs_dir: ${logs_dir}"
-echo "data ratios; ${data_ratios}"
 ###
 if [[ $is_on_tc == true ]]; then
   # mount manifold
@@ -177,11 +141,6 @@ if [[ $do_pretrain == true ]]; then
     # temp hack: need to change max_iters in the dataloader
     # train.lr_warmup_fraction also doesn't seem to be passed through?
 
-
-    # for sanity checking: echo all run settings into a file in out_dir
-    #mkdir -p $out_dir
-    #echo_all_params > "${out_dir}/run_settings.txt"
-
     litgpt pretrain_mixed $model_name \
       --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
       --precision "bf16-true" \
@@ -190,26 +149,23 @@ if [[ $do_pretrain == true ]]; then
       --data.pretraining_data_path ${pretraining_data_dir} \
       --data.sft_data_paths "${instruction_data_paths}" \
       --data.use_adaptive_sampling true \
-      --data.pretraining_val_path "${FINEWEB_DIR}/val" \
-      --train.freeze_sampling_rate true \
-      --data.prompt_style $sft_template \
-      --data.initial_sampling_rates "${data_ratios}" \
-      --train.micro_batch_size 1 \
+      --data.prompt_style "default" \
+      --train.scheduler "ts_gp" \
+      --data.initial_sampling_rates "[0.75, 0.25]" \
+      --train.micro_batch_size 8 \
       --train.max_seq_len $max_seq_len \
       --train.min_lr 1e-6 \
-      --train.max_iters $max_iters \
       --train.max_additional_steps $max_additional_steps \
-      --train.save_interval 500 \
+      --train.save_interval 1000 \
       --train.lr_warmup_fraction 0.01 \
-      --train.episode_length 2000 \
-      --train.log_interval 50 \
-      --train.lr_scheduler $lr_scheduler \
-      --eval.interval 500 \
+      --train.episode_length 100 \
+      --train.log_interval 10 \
+      --train.decay_lr $decay_lr \
+      --eval.interval 100 \
       --eval.max_iters 100 \
       --out_dir $out_dir \
       --logs_dir $logs_dir \
-      --data.num_repeats 1 \
-      --logger_name tensorboard
+      --data.num_repeats 1
     fi
 fi
 
@@ -221,7 +177,7 @@ if [[ $do_sft == true ]]; then
       --data.json_path $instruction_data_json \
       --train.max_seq_len $max_seq_len \
       --train.epochs 1 \
-      --train.micro_batch_size 8 \
+      --train.micro_batch_size 4 \
       --train.lr_warmup_steps 100 \
       --eval.interval 500 \
       --train.min_lr 1e-6 \

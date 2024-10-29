@@ -3,6 +3,8 @@ import torchx.components.fb.interactive_lib as interactive_lib
 import torchx.specs as specs
 
 
+# NOTE: a strange bug (caused by someone's pushed code? ) seems to be happening when launching torchx jobs.
+# if you see "scheduler arg is incorrect or missing required option: localityConstraints", set TORCHX_MAST_CONDA_FORCE_SINGLE_REGION=0
 env_vars = {
     "DISABLE_NFS": "1",
     "DISABLE_OILFS": "1",
@@ -11,7 +13,7 @@ env_vars = {
     "TRITON_LIBCUDA_PATH": "/usr/local/fbcode/platform010/lib/libcuda.so",
     "NCCL_DEBUG": "WARN",
     "DUMP_DIR": "/mnt/mffuse/out/${app_id}",
-    "NCCL_TIMEOUT": "600"
+    "NCCL_TIMEOUT": "600",
 }
 
 additional_packages = [
@@ -25,7 +27,51 @@ def train_seq(
     *script_args: str,
     name: str = "seq_train",
     script: str = "pretrain_then_finetune.sh",
-    nnodes: int = 2,
+    nnodes: int = 1,
+    nproc_per_node: int = 8,
+    h: str = "zionex_80g",
+    run_as_root: bool = True,
+    env: Optional[dict] = {},
+    tb_log: bool = True,
+    out_dir: str = "/mnt/mffuse/all_in_one_pretraining/out/${app_id}",
+) -> specs.AppDef:
+    kwargs = {
+        "name": name,
+        "h": h,
+        "run_as_root": run_as_root,
+        "env": {**env_vars, **env} if env else env_vars,
+    }
+
+    if "--out_dir" in script_args:
+        out_dir = script_args[script_args.index("--out_dir") + 1]
+
+    args = [
+        "--nnodes",
+        str(nnodes),
+        "--nproc-per-node",
+        str(nproc_per_node),
+        "--no-python",
+        "./run.sh",
+        script,
+        *script_args,
+        "--out_dir",
+        out_dir,
+        "--is_on_tc",
+    ]
+
+    job_spec = conda.torchrun(*args, **kwargs)
+
+    packages = [job_spec.roles[0].image, *additional_packages]
+    job_spec.roles[0].image = ";".join(packages)
+
+    return job_spec
+
+
+def train_seq_scratch(
+    *script_args: str,
+    name: str = "train_seq_scratch",
+    script: str = "pretrain_from_scratch.sh",
+    nnodes: int = 1,
     nproc_per_node: int = 8,
     h: str = "zionex_80g",
     run_as_root: bool = True,
@@ -68,7 +114,7 @@ def train_seq(
 def train_mixed(
     *script_args: str,
     script: str = "mixed_pretraining_fixed.sh",
-    nnodes: int = 2,
+    nnodes: int = 1,
     nproc_per_node: int = 8,
     name: str = "mixed_pretraining_fixed",
     h: str = "zionex_80g",
@@ -108,10 +154,11 @@ def train_mixed(
 
     return job_spec
 
+
 def train_mixed_curr(
     *script_args: str,
     script: str = "mixed_pretraining_curriculum.sh",
-    nnodes: int = 2,
+    nnodes: int = 1,
     nproc_per_node: int = 8,
     name: str = "mixed_pretraining_curriculum",
     h: str = "zionex_80g",
@@ -151,10 +198,11 @@ def train_mixed_curr(
 
     return job_spec
 
+
 def train_mixed_rl(
     *script_args: str,
     script: str = "mixed_pretraining_bandits.sh",
-    nnodes: int = 2,
+    nnodes: int = 1,
     nproc_per_node: int = 8,
     name: str = "mixed_pretraining_bandits",
     h: str = "zionex_80g",
@@ -193,6 +241,7 @@ def train_mixed_rl(
     job_spec.roles[0].image = ";".join(packages)
 
     return job_spec
+
 
 def train_interactive(
     *script_args: str,
@@ -250,9 +299,6 @@ def sft(
         "run_as_root": run_as_root,
         "env": {**env_vars, **env} if env else env_vars,
     }
-
-    if out_dir in script_args.keys():
-        out_dir = script_args["out_dir"]
 
     args = [
         "--nnodes",

@@ -8,6 +8,7 @@ source configs/.env
 set +a
 
 ### Default args
+#TODO: rerun sequential ones
 model_name="pythia-1b"
 step="-00045000"
 max_iters=10000000
@@ -18,36 +19,11 @@ pretraining_data_dir="${FINEWEB_DIR}"
 instruction_data_json="${MANIFOLD_DIR}/all_in_one_pretraining/datasets/sft/concat/"
 run_id=${EPOCHSECONDS}
 is_on_tc=true
-lr_scheduler="cosine"
+decay_lr=false
 out_dir="${MANIFOLD_DIR}/all_in_one_pretraining/out/${model_name}_raw_pretrained_from_${step}_id${run_id}"
-micro_batch_size=1
-log_interval=100
-tokenizer_dir="${MANIFOLD_DIR}/all_in_one_pretraining/models/EleutherAI/pythia-1b/"
+lr_scheduler="cosine"
+
 ### Default args
-
-
-echo_all_params() {
-    echo "All parameters (including defaults):"
-    echo "------------------------------------"
-    echo "model_name: $model_name"
-    echo "step: $step"
-    echo "max_iters: $max_iters"
-    echo "max_additional_steps: $max_additional_steps"
-    echo "max_seq_len: $max_seq_len"
-    echo "checkpoint_dir: $checkpoint_dir"
-    echo "pretraining_data_dir: $pretraining_data_dir"
-    echo "instruction_data_paths: $instruction_data_paths"
-    echo "run_id: $run_id"
-    echo "is_on_tc: $is_on_tc"
-    echo "out_dir: $out_dir"
-    echo "logs_dir: $logs_dir"
-    echo "data_ratios: $data_ratios"
-    echo "sft_template: $sft_template"
-    echo "lr_scheduler: $lr_scheduler"
-    echo "micro_batch_size: $micro_batch_size"
-    echo "log_interval: $log_interval"
-    echo "------------------------------------"
-}
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -103,14 +79,6 @@ while [[ $# -gt 0 ]]; do
             out_dir="${2:-$out_dir}"
             shift 2
             ;;
-        --nnodes)
-            nnodes="${2:-$nnodes}"
-            shift 2
-            ;;
-        --tokenizer_dir)
-            tokenizer_dir="${2:-$tokenizer_dir}"
-            shift 2
-            ;;
         *)
             echo "Invalid option: $1"
             exit 1
@@ -127,13 +95,11 @@ if [[ $is_on_tc == true ]]; then
         source /packages/conda_mast_core/mount/mount.sh
     fi
 fi
-global_batch_size=$((512/$nnodes))
 
 ### Print all settings
 echo "model_name: ${model_name}"
 echo "is on tc: ${is_on_tc}"
 echo "checkpoint dir: ${checkpoint_dir}"
-echo "global batch size: $global_batch_size"
 ###
 
 evaluate() {
@@ -165,24 +131,21 @@ pretrained_checkpoint_dir="${checkpoint_dir}/step${step}"
 # TODO - train details such as batch size should be passed from a config instead of manually passed in.
 # legit runs should have 20B. Test runs with 1B-5B for sanity checking
 # echo -e "\033[32m> > Pretraining ... \033[0m"
-
-
 litgpt pretrain $model_name \
-  --resume "${checkpoint_dir}/step${step}/lit_model.pth" \
-  --tokenizer_dir $tokenizer_dir \
+  --resume true \
+  --tokenizer_dir "${checkpoint_dir}/step${step}" \
   --data FineWebDataset \
   --data.data_path $pretraining_data_dir \
   --data.val_data_path "${FINEWEB_DIR}/val" \
-  --train.micro_batch_size $micro_batch_size \
+  --train.micro_batch_size 16 \
   --train.max_seq_len $max_seq_len \
   --train.min_lr 1e-6 \
   --train.max_iters ${max_iters} \
   --train.max_additional_steps $max_additional_steps \
-  --train.save_interval 1000 \
-  --train.log_interval $log_interval \
+  --train.save_interval 500 \
+  --train.log_interval 50 \
   --train.lr_warmup_fraction 0.01 \
   --train.lr_scheduler $lr_scheduler \
-  --train.global_batch_size $global_batch_size \
   --eval.interval 1000 \
   --out_dir $out_dir \
   --logs_dir $out_dir \
@@ -195,3 +158,23 @@ pretrained_checkpoint_dir="out/${model_name}_pretrained_from_${step}"
 #     --batch_size 8 \
 #     --out_dir "post_results/${model_name}_pretrained_id${run_id}" \
 #     --tasks "gsm8k,arc_easy"
+
+# 3) Instruction-tune the model
+# warmup steps should be rougly 1%? 500 steps, 5 warmup steps? Seems kind of few
+pretrained_checkpoint_dir="out/${model_name}_pretrained_from_${step}/final"
+echo -e "\033[32m> > SFT \033[0m"
+litgpt finetune_full $pretrained_checkpoint_dir \
+  --data "JSON" \
+  --data.json_path $instruction_data_json \
+  --train.max_seq_len $max_seq_len \
+  --train.epochs 5 \
+  --train.lr_warmup_steps 100 \
+  --logger_name tensorboard \
+  --out_dir "out/${model_name}_pretrained_sft_from_${step}_id${run_id}"
+
+# TODO - need to add some tasks to eval harness.
+echo -e "\033[32m> Evaluating after pretraining and sft...\033[0m"
+litgpt evaluate "out/${model_name}_pretrained_sft_from_${step}_id${run_id}/final" \
+    --batch_size 8 \
+    --out_dir "post_results/${model_name}_instruction_posttune_id${run_id}" \
+    --tasks "gsm8k,arc_easy"
