@@ -4,7 +4,7 @@ model_name: pythia-70m
 
 model_config:
 
-out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pythia_70m_128b
+out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/ablations/pythia_70m_sc_from_30k
 
 precision: bf16-true
 
@@ -17,14 +17,16 @@ tokenizer_dir: /data/tir/projects/tir3/users/mengyan3/manifold_data/base_tokeniz
 data:
   class_path: litgpt.data.Olmo2Dataset
   init_args:
-    data_path: /scratch/mengyan3/c4_pythia/c4_pythia
-    val_data_path: /scratch/mengyan3/c4_pythia_val/val
+    data_path: /compute/babel-14-29/mengyan3/c4_merged/
+    val_data_path: /compute/babel-14-29/mengyan3/c4_pythia_val/
     num_workers: 8
+    mix_weights_str: "main:0.8,code:0.2"
 
 
+# 61035 - 20000
 train:
   max_iters: 10000000
-  max_additional_steps: 61035
+  max_additional_steps: 31035
   micro_batch_size: 16
   global_batch_size: 1024
   log_interval: 10

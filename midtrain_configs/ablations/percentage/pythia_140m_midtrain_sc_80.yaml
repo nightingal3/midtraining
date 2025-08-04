@@ -1,30 +1,32 @@
 # config.yaml
 
-model_name: pythia-70m
+model_name: pythia-160m
 
 model_config:
 
-out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pythia_70m_64b
+out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/ablations/pythia_160m_sc_80_percent
 
 precision: bf16-true
 
 initial_checkpoint_dir:
 
-resume: false
+resume: true
 
 tokenizer_dir: /data/tir/projects/tir3/users/mengyan3/manifold_data/base_tokenizers/checkpoints/EleutherAI/pythia-1b/
 
 data:
   class_path: litgpt.data.Olmo2Dataset
   init_args:
-    data_path: /scratch/mengyan3/c4_pythia/c4_pythia
-    val_data_path: /scratch/mengyan3/c4_pythia_val/val
+    data_path: /compute/babel-14-29/mengyan3/c4_merged/
+    val_data_path: /compute/babel-14-29/mengyan3/c4_pythia_val/
     num_workers: 8
+    mix_weights_str: "main:0.2,code:0.8"
 
 
+# 61035 - 40000
 train:
   max_iters: 10000000
-  max_additional_steps: 30517
+  max_additional_steps: 5035
   micro_batch_size: 16
   global_batch_size: 1024
   log_interval: 10

@@ -1,31 +1,34 @@
 # config.yaml
 
-model_name: pythia-70m
+model_name: pythia-410m
 
 model_config:
 
-out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pythia_70m_32b
+out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/pythia_410m_128b_fixed
 
 precision: bf16-true
 
 initial_checkpoint_dir:
 
-resume: false
+resume: true
 
 tokenizer_dir: /data/tir/projects/tir3/users/mengyan3/manifold_data/base_tokenizers/checkpoints/EleutherAI/pythia-1b/
+
 
 data:
   class_path: litgpt.data.Olmo2Dataset
   init_args:
-    data_path: /scratch/mengyan3/c4_pythia/c4_pythia
-    val_data_path: /scratch/mengyan3/c4_pythia_val/val
+    data_path: /compute/babel-14-29/mengyan3/c4_merged/
+    val_data_path: /compute/babel-14-29/mengyan3//c4_pythia_val/
     num_workers: 8
+    mix_weights_str: "main:1.0"
 
 
+# 61035 - 2000
 train:
   max_iters: 10000000
-  max_additional_steps: 15258
-  micro_batch_size: 16
+  max_additional_steps: 5035
+  micro_batch_size: 8
   global_batch_size: 1024
   log_interval: 10
   save_interval: 2000
@@ -34,7 +37,7 @@ train:
   lr_warmup_fraction: 0.1
 
 eval:
-  interval: 1000
+  interval: 2000
 
 optimizer:
   class_path: torch.optim.AdamW

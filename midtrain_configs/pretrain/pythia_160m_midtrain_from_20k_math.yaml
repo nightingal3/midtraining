@@ -1,0 +1,51 @@
+# config.yaml
+
+model_name: pythia-160m
+
+model_config:
+
+out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/pythia_160m_128b_midtrain_from_20k_math
+
+precision: bf16-true
+
+initial_checkpoint_dir:
+
+resume: true
+
+tokenizer_dir: /data/tir/projects/tir3/users/mengyan3/manifold_data/base_tokenizers/checkpoints/EleutherAI/pythia-1b/
+
+data:
+  class_path: litgpt.data.Olmo2Dataset
+  init_args:
+    data_path: /compute/babel-14-29/mengyan3/c4_merged/
+    val_data_path: /compute/babel-14-29/mengyan3/c4_pythia_val/
+    num_workers: 8
+    mix_weights_str: "main:0.88,math:0.12"
+
+
+# 61035 - 48000
+train:
+  max_iters: 10000000
+  max_additional_steps: 13035
+  micro_batch_size: 16
+  global_batch_size: 1024
+  log_interval: 10
+  save_interval: 2000
+  min_lr: 1e-6
+  lr_scheduler: "cosine"
+  lr_warmup_fraction: 0.1
+
+eval:
+  interval: 1000
+
+optimizer:
+  class_path: torch.optim.AdamW
+
+  init_args:
+    weight_decay: 0.1
+    
+    betas:
+      - 0.9
+      - 0.95
+
+logger_name: wandb
