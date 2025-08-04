@@ -15,7 +15,7 @@ resume: true
 tokenizer_dir: /data/tir/projects/tir3/users/mengyan3/manifold_data/base_tokenizers/checkpoints/EleutherAI/pythia-1b/
 
 data:
-  class_path: litgpt.data.Olmo2Dataset
+  class_path: litgpt.data.ShardedMixedDataset
   init_args:
     data_path: /compute/babel-14-29/mengyan3/c4_ctd_pythia_2/
     val_data_path: /compute/babel-14-29/mengyan3/c4_pythia_val/
