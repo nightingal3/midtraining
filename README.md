@@ -1,8 +1,6 @@
 # Midtraining Bridges Pretraining and Posttraining Distributions
 
-This repository contains the code and configuration files for the paper:
-
-**"Midtraining Bridges Pretraining and Posttraining Distributions"**
+This repository contains the code and configuration files for the paper "Midtraining Bridges Pretraining and Posttraining Distributions" (2025)
 
 ## Overview
 This repo provides scripts and configuration templates to run large-scale language model training with midtraining, pretraining, and ablation experiments. All training is managed via YAML config files and SLURM batch scripts.
