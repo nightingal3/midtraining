@@ -24,6 +24,7 @@ conda activate llm_env_dev_copy
 echo "Running on host $(hostname)"
 echo nvidia-smi
 
+# NOTE: this is ugly and just kept this for documentation of which runs I did in order. You can just pass in a config file directly. 
 model_config_files=(
     "/projects/bfcu/mliu7/all_in_one_pretraining/midtrain_configs/pretrain/pythia_410m_from_scratch_128B.yaml"
     "/projects/bfcu/mliu7/all_in_one_pretraining/midtrain_configs/pretrain/pythia_1b_from_scratch_128B.yaml"
@@ -77,8 +78,19 @@ cts_pretrain_ablations=(
     "/projects/bfcu/mliu7/all_in_one_pretraining/midtrain_configs/ablations/cts_pretrain/pythia_160m_midtrain_from_56k_math.yaml"
 )
 # NOTE: doing ablations now!!! switch this back if not
-#model_config_file=${model_config_files[$((SLURM_ARRAY_TASK_ID - 1))]}
-model_config_file=${model_config_files[$((SLURM_ARRAY_TASK_ID - 1))]}
+# Priority for selecting config file:
+# 1) positional argument ($1)
+# 2) environment variable MODEL_CONFIG_FILE or MODEL_CONFIG
+# 3) SLURM array selection from model_config_files
+if [ -n "$1" ]; then
+    model_config_file="$1"
+elif [ -n "$MODEL_CONFIG_FILE" ]; then
+    model_config_file="$MODEL_CONFIG_FILE"
+elif [ -n "$MODEL_CONFIG" ]; then
+    model_config_file="$MODEL_CONFIG"
+else
+    model_config_file=${model_config_files[$((SLURM_ARRAY_TASK_ID - 1))]}
+fi
 echo "Using model config file: $model_config_file"
 
 # Auto-calculate remaining steps for preempt restarts
