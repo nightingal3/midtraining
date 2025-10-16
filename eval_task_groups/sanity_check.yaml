@@ -1,5 +1,0 @@
-group: sanity-check
-task:
-  - arithmetic
-metric_list:
-  - metric: perplexity

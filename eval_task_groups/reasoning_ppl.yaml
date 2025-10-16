@@ -1,6 +1,0 @@
-group: reasoning-ppl
-task:
-  - gsm8k
-  - arithmetic
-metric_list:
-  - metric: perplexity
