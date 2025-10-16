@@ -20,7 +20,7 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate llm_env_dev_copy
 
 # change to project dir if needed
-cd /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/util_scripts
+cd /projects/bfcu/mliu7/all_in_one_pretrainingutil_scripts
 
 
 # run the Python merge script

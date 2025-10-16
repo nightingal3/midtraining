@@ -4,7 +4,7 @@ model_name: pythia-70m
 
 model_config:
 
-out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pythia_70m_128b_fixed
+out_dir: /projects/bfcu/mliu7/all_in_one_pretrainingpythia_70m_128b_fixed
 
 precision: bf16-true
 
@@ -18,7 +18,7 @@ data:
   class_path: litgpt.data.ShardedMixedDataset
   init_args:
     data_path: /compute/babel-14-29/mengyan3/c4_ctd_pythia_2/
-    val_data_path: /compute/babel-14-29/mengyan3/c4_pythia_val/
+    val_data_path: /work/hdd/bfcu/mliu7/data/c4_pythia_val/
     num_workers: 8
 
 

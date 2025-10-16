@@ -1,6 +1,6 @@
 #!/bin/bash
 set -a
-source /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/configs/.env
+source /projects/bfcu/mliu7/all_in_one_pretrainingconfigs/.env
 set +a
 
 get_next_available_gpu() {
@@ -170,7 +170,7 @@ echo "prompt_style: $prompt_style"
 echo "seed: $seed"
 echo "num_epochs: $num_epochs"
 
-cd /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/
+cd /projects/bfcu/mliu7/all_in_one_pretraining
 set -a
 source configs/.env
 set +a

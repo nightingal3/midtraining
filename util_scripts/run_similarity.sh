@@ -34,7 +34,7 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 export TOKENIZERS_PARALLELISM=false
 
 # Navigate to the script directory
-cd /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/util_scripts
+cd /projects/bfcu/mliu7/all_in_one_pretrainingutil_scripts
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate llm_env_dev_copy
 

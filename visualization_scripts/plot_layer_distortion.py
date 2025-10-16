@@ -25,9 +25,9 @@ datasets = [
 ]
 
 # Base paths to pretrained and finetuned checkpoints
-pretrain_fixed_base      = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/pythia_70m_128b_fixed"
-pretrain_midtrain_base   = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/pythia_70m_128b_fixed_midtrain_spikefix"
-finetuned_base           = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/finetuned_chkpts/pythia-70m"
+pretrain_fixed_base      = "/projects/bfcu/mliu7/all_in_one_pretrainingpretrained_chkpts/pythia_70m_128b_fixed"
+pretrain_midtrain_base   = "/projects/bfcu/mliu7/all_in_one_pretrainingpretrained_chkpts/pythia_70m_128b_fixed_midtrain_spikefix"
+finetuned_base           = "/projects/bfcu/mliu7/all_in_one_pretrainingfinetuned_chkpts/pythia-70m"
 
 # Gather distance data for each dataset
 distance_data = {}

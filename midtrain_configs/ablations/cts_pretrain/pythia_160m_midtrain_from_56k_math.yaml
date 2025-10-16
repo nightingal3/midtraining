@@ -4,7 +4,7 @@ model_name: pythia-160m
 
 model_config:
 
-out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/ablations/pythia_160m_math_cts_pretrain
+out_dir: /projects/bfcu/mliu7/all_in_one_pretrainingpretrained_chkpts/ablations/pythia_160m_math_cts_pretrain
 
 precision: bf16-true
 
@@ -17,8 +17,8 @@ tokenizer_dir: /data/tir/projects/tir3/users/mengyan3/manifold_data/base_tokeniz
 data:
   class_path: litgpt.data.ShardedMixedDataset
   init_args:
-    data_path: /compute/babel-14-29/mengyan3/c4_merged/
-    val_data_path: /compute/babel-14-29/mengyan3/c4_pythia_val/
+    data_path: /work/hdd/bfcu/mliu7/data/c4_merged/
+    val_data_path: /work/hdd/bfcu/mliu7/data/c4_pythia_val/
     num_workers: 8
     mix_weights_str: "main:0.0,math:1.0"
 

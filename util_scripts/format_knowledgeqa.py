@@ -6,7 +6,7 @@ import random
 import multiprocessing
 from itertools import islice
 
-KNOWLEDGEQA_PATH = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/knowledge_data"
+KNOWLEDGEQA_PATH = "/projects/bfcu/mliu7/all_in_one_pretrainingknowledge_data"
 OUT_DIR = "/data/tir/projects/tir3/users/mengyan3/manifold_data/knowledgeqa_formatted_revised"
 SUBDIRS = [
     "code",

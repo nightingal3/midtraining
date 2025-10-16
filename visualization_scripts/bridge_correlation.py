@@ -1462,12 +1462,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Run the analysis
-    csv_file_path = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/visualization_scripts/final_step_ft_results.csv"
+    csv_file_path = "/projects/bfcu/mliu7/all_in_one_pretrainingvisualization_scripts/final_step_ft_results.csv"
     
     # Your similarity matrix file paths
-    embedding_csv = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/util_scripts/similarity_results_07_14_extended.csv" 
-    #ngram_csv = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/07_15_sim_ngram.csv"
-    ngram_csv = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/dataset_similarity_matrix_syntactic_multilevel_char1to5_plain.csv"
+    embedding_csv = "/projects/bfcu/mliu7/all_in_one_pretrainingutil_scripts/similarity_results_07_14_extended.csv" 
+    #ngram_csv = "/projects/bfcu/mliu7/all_in_one_pretraining07_15_sim_ngram.csv"
+    ngram_csv = "/projects/bfcu/mliu7/all_in_one_pretrainingdataset_similarity_matrix_syntactic_multilevel_char1to5_plain.csv"
     
     print(f"Running analysis with similarity mode: {args.similarity_mode}")
     

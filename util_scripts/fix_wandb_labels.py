@@ -6,7 +6,7 @@ PROJECT = "finetune-pythia-70m"
 GROUP   = "pycode_final_fixed_70m"
 OLD_TAG       = "flan_high_mix"
 NEW_TAG       = "starcoder_mix"
-CHKPT_PREFIX  = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/pythia_70m_128b_fixed_midtrain_spikefix"
+CHKPT_PREFIX  = "/projects/bfcu/mliu7/all_in_one_pretrainingpretrained_chkpts/pythia_70m_128b_fixed_midtrain_spikefix"
 DRY_RUN       = False
 # ───────────────────────────────────────────────────────────────────────────
 

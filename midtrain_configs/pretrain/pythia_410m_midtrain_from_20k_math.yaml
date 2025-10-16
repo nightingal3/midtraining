@@ -4,7 +4,7 @@ model_name: pythia-410m
 
 model_config:
 
-out_dir: /data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/pythia_410m_128b_midtrain_from_20k_math
+out_dir: /projects/bfcu/mliu7/all_in_one_pretrainingpretrained_chkpts/pythia_410m_128b_midtrain_from_20k_math
 
 precision: bf16-true
 
@@ -17,8 +17,8 @@ tokenizer_dir: /data/tir/projects/tir3/users/mengyan3/manifold_data/base_tokeniz
 data:
   class_path: litgpt.data.ShardedMixedDataset
   init_args:
-    data_path: /compute/babel-14-29/mengyan3/c4_merged/
-    val_data_path: /compute/babel-14-29/mengyan3/c4_pythia_val/
+    data_path: /work/hdd/bfcu/mliu7/data/c4_merged/
+    val_data_path: /work/hdd/bfcu/mliu7/data/c4_pythia_val/
     num_workers: 8
     mix_weights_str: "main:0.88,math:0.12"
 

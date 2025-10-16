@@ -16,7 +16,7 @@ def extract_mixture_weight_from_checkpoint(checkpoint_dir):
 
 # Test cases
 test_cases = [
-    '/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/ablations/pythia_160m_sc_80_percent/step-00050000',
+    '/projects/bfcu/mliu7/all_in_one_pretrainingpretrained_chkpts/ablations/pythia_160m_sc_80_percent/step-00050000',
     '/path/to/pythia_70m_sc_30_percent/final',
     '/path/to/pythia_70m_sc_10_percent/step-00025000',
     '/invalid/path/without/percent',

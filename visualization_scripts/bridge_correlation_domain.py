@@ -670,7 +670,7 @@ def analyze_domain_matching_effect(analysis_df):
 
 if __name__ == "__main__":
     # Run the analysis
-    csv_file_path = "/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/visualization_scripts/final_step_ft_results.csv"
+    csv_file_path = "/projects/bfcu/mliu7/all_in_one_pretrainingvisualization_scripts/final_step_ft_results.csv"
     
     # Optional: provide paths to your new similarity matrices
     # embedding_csv = "path/to/your/embedding_similarity.csv"

@@ -36,7 +36,7 @@ def sort_timing_steps(timing_steps):
 
 # Test cases
 test_cases = [
-    '/data/tir/projects/tir3/users/mengyan3/all_in_one_pretraining/pretrained_chkpts/ablations/pythia_160m_sc_from_50k/final',
+    '/projects/bfcu/mliu7/all_in_one_pretrainingpretrained_chkpts/ablations/pythia_160m_sc_from_50k/final',
     '/path/to/pythia_70m_sc_from_100k/step-00025000',
     '/path/to/pythia_70m_sc_from_25k/final',
     '/invalid/path/without/timing',
